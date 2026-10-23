@@ -25,11 +25,11 @@ afterEach(() => {
 });
 
 describe('parseOptions', () => {
-  it('keeps direct in-window flights sorted by price and marks bag fees', () => {
+  it('keeps direct in-window flights (depart from 08:00, land by 21:00) sorted by price and marks bag fees', () => {
     const opts = parseOptions(fixture);
     expect(opts.map((o) => o.price)).toEqual([1200, 1500, 1900]);
     expect(opts[0].bagExtra).toBe(true); // Wizz Air
-    expect(opts[1].bagExtra).toBe(true); // extension text, arrives exactly 18:00
+    expect(opts[1].bagExtra).toBe(true); // extension text, lands exactly 21:00
     expect(opts[2].bagExtra).toBe(false);
     expect(opts[2].departureToken).toBe('tokA');
   });
@@ -45,7 +45,7 @@ describe('buildParams', () => {
       engine: 'google_flights', departure_id: 'AAA', arrival_id: 'BBB',
       outbound_date: '2026-12-31', return_date: '2027-01-04', type: '1', adults: '2', infants_on_lap: '1',
       stops: '1', currency: 'ILS', gl: 'il', hl: 'en', sort_by: '2',
-      outbound_times: '8,18,8,18', return_times: '8,18,8,18', departure_token: 'tokA',
+      outbound_times: '8,23,8,20', return_times: '8,23,8,20', departure_token: 'tokA',
     });
   });
 });

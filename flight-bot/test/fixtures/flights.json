@@ -1,61 +1,157 @@
 {
-  "search_metadata": { "google_flights_url": "https://www.google.com/travel/flights?q=test" },
+  "search_metadata": {
+    "google_flights_url": "https://www.google.com/travel/flights?q=test"
+  },
   "best_flights": [
     {
-      "flights": [{
-        "departure_airport": { "id": "AAA", "time": "2026-12-03 10:15" },
-        "arrival_airport": { "id": "BBB", "time": "2026-12-03 12:45" },
-        "airline": "Austrian", "flight_number": "OS 858", "extensions": ["Carry-on baggage included"]
-      }],
-      "price": 1900, "departure_token": "tokA"
+      "flights": [
+        {
+          "departure_airport": {
+            "id": "AAA",
+            "time": "2026-12-03 10:15"
+          },
+          "arrival_airport": {
+            "id": "BBB",
+            "time": "2026-12-03 12:45"
+          },
+          "airline": "Austrian",
+          "flight_number": "OS 858",
+          "extensions": [
+            "Carry-on baggage included"
+          ]
+        }
+      ],
+      "price": 1900,
+      "departure_token": "tokA"
     },
     {
-      "flights": [{
-        "departure_airport": { "id": "AAA", "time": "2026-12-03 14:30" },
-        "arrival_airport": { "id": "BBB", "time": "2026-12-03 17:00" },
-        "airline": "Wizz Air", "flight_number": "W6 2406", "extensions": []
-      }],
-      "price": 1200, "departure_token": "tokW"
+      "flights": [
+        {
+          "departure_airport": {
+            "id": "AAA",
+            "time": "2026-12-03 14:30"
+          },
+          "arrival_airport": {
+            "id": "BBB",
+            "time": "2026-12-03 17:00"
+          },
+          "airline": "Wizz Air",
+          "flight_number": "W6 2406",
+          "extensions": []
+        }
+      ],
+      "price": 1200,
+      "departure_token": "tokW"
     }
   ],
   "other_flights": [
     {
-      "flights": [{
-        "departure_airport": { "id": "AAA", "time": "2026-12-03 07:30" },
-        "arrival_airport": { "id": "BBB", "time": "2026-12-03 10:00" },
-        "airline": "El Al", "flight_number": "LY 361", "extensions": []
-      }],
-      "price": 1000, "departure_token": "tokE"
-    },
-    {
-      "flights": [{
-        "departure_airport": { "id": "AAA", "time": "2026-12-03 16:00" },
-        "arrival_airport": { "id": "BBB", "time": "2026-12-03 18:30" },
-        "airline": "Austrian", "flight_number": "OS 860", "extensions": []
-      }],
-      "price": 900, "departure_token": "tokL"
-    },
-    {
-      "flights": [{
-        "departure_airport": { "id": "AAA", "time": "2026-12-03 15:30" },
-        "arrival_airport": { "id": "BBB", "time": "2026-12-03 18:00" },
-        "airline": "El Al", "flight_number": "LY 363", "extensions": ["Checked baggage for a fee"]
-      }],
-      "price": 1500, "departure_token": "tokB"
+      "flights": [
+        {
+          "departure_airport": {
+            "id": "AAA",
+            "time": "2026-12-03 07:30"
+          },
+          "arrival_airport": {
+            "id": "BBB",
+            "time": "2026-12-03 10:00"
+          },
+          "airline": "El Al",
+          "flight_number": "LY 361",
+          "extensions": []
+        }
+      ],
+      "price": 1000,
+      "departure_token": "tokE"
     },
     {
       "flights": [
-        { "departure_airport": { "id": "AAA", "time": "2026-12-03 09:00" }, "arrival_airport": { "id": "IST", "time": "2026-12-03 11:30" }, "airline": "Turkish", "flight_number": "TK 785", "extensions": [] },
-        { "departure_airport": { "id": "IST", "time": "2026-12-03 13:00" }, "arrival_airport": { "id": "BBB", "time": "2026-12-03 14:30" }, "airline": "Turkish", "flight_number": "TK 1883", "extensions": [] }
+        {
+          "departure_airport": {
+            "id": "AAA",
+            "time": "2026-12-03 18:30"
+          },
+          "arrival_airport": {
+            "id": "BBB",
+            "time": "2026-12-03 21:30"
+          },
+          "airline": "Austrian",
+          "flight_number": "OS 860",
+          "extensions": []
+        }
       ],
-      "price": 700, "departure_token": "tokT"
+      "price": 900,
+      "departure_token": "tokL"
     },
     {
-      "flights": [{
-        "departure_airport": { "id": "AAA", "time": "2026-12-03 11:00" },
-        "arrival_airport": { "id": "BBB", "time": "2026-12-03 13:30" },
-        "airline": "Lufthansa", "flight_number": "LH 687", "extensions": []
-      }]
+      "flights": [
+        {
+          "departure_airport": {
+            "id": "AAA",
+            "time": "2026-12-03 18:00"
+          },
+          "arrival_airport": {
+            "id": "BBB",
+            "time": "2026-12-03 21:00"
+          },
+          "airline": "El Al",
+          "flight_number": "LY 363",
+          "extensions": [
+            "Checked baggage for a fee"
+          ]
+        }
+      ],
+      "price": 1500,
+      "departure_token": "tokB"
+    },
+    {
+      "flights": [
+        {
+          "departure_airport": {
+            "id": "AAA",
+            "time": "2026-12-03 09:00"
+          },
+          "arrival_airport": {
+            "id": "IST",
+            "time": "2026-12-03 11:30"
+          },
+          "airline": "Turkish",
+          "flight_number": "TK 785",
+          "extensions": []
+        },
+        {
+          "departure_airport": {
+            "id": "IST",
+            "time": "2026-12-03 13:00"
+          },
+          "arrival_airport": {
+            "id": "BBB",
+            "time": "2026-12-03 14:30"
+          },
+          "airline": "Turkish",
+          "flight_number": "TK 1883",
+          "extensions": []
+        }
+      ],
+      "price": 700,
+      "departure_token": "tokT"
+    },
+    {
+      "flights": [
+        {
+          "departure_airport": {
+            "id": "AAA",
+            "time": "2026-12-03 11:00"
+          },
+          "arrival_airport": {
+            "id": "BBB",
+            "time": "2026-12-03 13:30"
+          },
+          "airline": "Lufthansa",
+          "flight_number": "LH 687",
+          "extensions": []
+        }
+      ]
     }
   ]
 }

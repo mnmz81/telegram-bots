@@ -3,7 +3,7 @@
 # (error text, how many itineraries, and each one's stops / times / price). Costs 1 search.
 # Usage: scripts/debug-search.sh ORIGIN DEST OUT_DATE RET_DATE [--no-times] [--dep-only] [--any-stops]
 #   --no-times   drop the departure/arrival time window
-#   --dep-only   time window on departures only (8,18) instead of departure+arrival (8,18,8,18)
+#   --dep-only   time window on departures only (8,18) instead of departure+arrival (8,23,8,20)
 #   --any-stops  allow connecting flights
 # Env: ADULTS (default 2), INFANTS (default 1). The API key is typed hidden, never stored.
 set -euo pipefail
@@ -11,7 +11,7 @@ set -euo pipefail
 [ $# -ge 4 ] || { sed -n 2,8p "$0" >&2; exit 2; }
 origin=$1 dest=$2 out=$3 ret=$4
 shift 4
-times=1 stops=1 tparam='8,18,8,18'
+times=1 stops=1 tparam='8,23,8,20'
 for flag in "$@"; do
   case $flag in
     --no-times) times=0 ;;
