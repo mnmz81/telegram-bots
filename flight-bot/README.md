@@ -31,7 +31,9 @@ Private Telegram bot: searches direct round trips on flexible weekends (SerpApi 
 
 ## Commands
 
-`/search` start a search, `/tracking` tracked flights, `/quota` searches left and used, `/blocked` hidden flights.
+`/search` start a search, `/tracking` tracked flights, `/quota` searches left and used, `/blocked` hidden flights. `/start` also installs these in Telegram's command menu, and the first screen has a "📋 המעקבים שלי" button.
+
+Every step has a "⬅️ חזרה" button. Going back re-shows the previous screen from storage, so it never spends a search.
 
 Under every flight list, "🚫 להסתיר טיסה" hides a flight (say, a night flight) from all later searches and from price tracking. It is matched by flight number and departure time, so if the airline moves the flight to another hour it shows up again. `/blocked` brings it back.
 

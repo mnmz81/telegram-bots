@@ -30,6 +30,8 @@ async function send(update: object, now = october) {
 const calls = (method: string) =>
   fetchMock.mock.calls.filter(([u]) => String(u).endsWith(`/${method}`)).map(([, init]) => JSON.parse(init.body));
 const sentText = () => calls('sendMessage').map((b) => b.text as string).join('\n');
+const buttonsOf = (msg: any): string[] => (msg?.reply_markup?.inline_keyboard ?? []).flat().map((b: any) => b.callback_data).filter(Boolean);
+const lastButtons = () => buttonsOf(calls('sendMessage').at(-1));
 
 beforeEach(async () => {
   vi.stubGlobal('fetch', fetchMock);
@@ -135,6 +137,42 @@ describe('bot', () => {
     for (const f of await blockedFlights(env.DB)) await setBlocked(env.DB, f, false);
     await send(command(1, '/blocked'));
     expect(sentText()).toContain('אין טיסות מוסתרות');
+  });
+  it('sets the command menu and offers tracked flights from the first screen', async () => {
+    await send(command(1, '/start'));
+    expect(calls('setMyCommands')).toHaveLength(1);
+    expect(lastButtons()).toContain('menu:tracking');
+  });
+  it('shows tracked flights from the menu button', async () => {
+    const item = { dest: 'BBB', out: '2026-12-03', ret: '2026-12-07', outKey: 'a', retKey: 'b', label: 'MY-LABEL' };
+    await addTracked(env.DB, item, { chosenPrice: 1900, cheapestPrice: 1200, cheapestLabel: 'x' }, 't');
+    await send(tap(1, 'menu:tracking'));
+    expect(sentText()).toContain('MY-LABEL');
+  });
+  it('steps back through the menus without searching', async () => {
+    await send(tap(1, 'dst:BBB'));
+    expect(lastButtons()).toContain('menu:start');
+    await send(tap(1, 'menu:start'));
+    expect(sentText()).toContain('לאן טסים');
+    await send(tap(1, 'mon:BBB:2026-12'));
+    expect(lastButtons()).toContain('dst:BBB');
+    await send(tap(1, 'pat:BBB:2026-12:thu'));
+    expect(lastButtons()).toContain('mon:BBB:2026-12');
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('search.json'))).toBe(false);
+  });
+  it('goes back from the outbound list to the weekend summary without a new search', async () => {
+    const id = await saveOption(env.DB, { dest: 'BBB', pairs: [{ out: '2026-12-03', ret: '2026-12-07' }] }, december().toISOString());
+    await send(tap(1, `go:${id}`), december);
+    const summary = calls('sendMessage').at(-1);
+    expect(buttonsOf(summary)).toContain('mon:BBB:2026-12');
+    const pairButton = buttonsOf(summary).find((b) => b.startsWith('pair:'))!;
+    await send(tap(1, pairButton), december);
+    const backButton = lastButtons().find((b) => b.startsWith('screen:'))!;
+    expect(backButton).toBeDefined();
+    const searches = fetchMock.mock.calls.filter(([u]) => String(u).includes('search.json')).length;
+    await send(tap(1, backButton), december);
+    expect(calls('sendMessage').at(-1).text).toBe(summary.text);
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('search.json'))).toHaveLength(searches);
   });
   it('refuses a third tracked item and offers to stop the others', async () => {
     const item = { dest: 'BBB', out: '2026-12-03', ret: '2026-12-07', outKey: 'a', retKey: 'b', label: '3–7.12' };

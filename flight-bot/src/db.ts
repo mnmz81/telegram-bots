@@ -78,6 +78,9 @@ export async function loadOption<T>(db: D1Database, id: number): Promise<T | nul
   return row ? (JSON.parse(row.payload) as T) : null;
 }
 
+export const replaceOption = (db: D1Database, id: number, payload: unknown) =>
+  db.prepare(`UPDATE options SET payload = ? WHERE id = ?`).bind(JSON.stringify(payload), id).run();
+
 // atomic read-and-delete: a double tap on the same button gets the payload once
 export async function takeOption<T>(db: D1Database, id: number): Promise<T | null> {
   const row = await db.prepare(`DELETE FROM options WHERE id = ? RETURNING payload`).bind(id).first<{ payload: string }>();

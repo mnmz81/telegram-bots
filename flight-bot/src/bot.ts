@@ -2,7 +2,7 @@ import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { CONFIG, type Env } from './config';
 import { isClosed, israelNow, monthOptions, weekendPairs, type DatePair, type Pattern } from './dates';
 import {
-  activeTracked, addTracked, blockedFlights, history, kvGet, kvSet, lastCheck, loadOption, saveOption, setBlocked,
+  activeTracked, addTracked, blockedFlights, history, kvGet, kvSet, lastCheck, loadOption, replaceOption, saveOption, setBlocked,
   stopAll, stopTracked, takeOption,
 } from './db';
 import { closedText, expiredText, fmtLeg, fmtPair, fmtPrice, trackedKeyboard } from './messages';
@@ -17,12 +17,21 @@ export const isOwner = (fromId: number | undefined, ownerId: string): boolean =>
   fromId !== undefined && String(fromId) === ownerId;
 
 type MonthSearch = { dest: string; pairs: DatePair[] };
-type PairView = { dest: string; pair: DatePair; result: SearchResult };
-type OutboundPick = { dest: string; pair: DatePair; outbound: Option; cheapest: Option };
+// back: id of the saved screen (text + keyboard) the "⬅️ חזרה" button re-sends, so going back costs no search
+type PairView = { dest: string; pair: DatePair; result: SearchResult; back?: number };
+type OutboundPick = { dest: string; pair: DatePair; outbound: Option; cheapest: Option; back?: number };
+type Screen = { text: string; keyboard: InlineKeyboard['inline_keyboard'] };
 type WantPick = OutboundPick & { ret: Option };
 
 const PATTERN_LABELS: Record<Pattern, string> = { thu: 'חמישי–שני', wed: 'רביעי–שני', both: 'שניהם' };
 const bagNote = (o: Option) => (o.bagExtra ? ' · מזוודה בתשלום' : '');
+const BACK = '⬅️ חזרה';
+const COMMANDS = [
+  { command: 'search', description: 'חיפוש טיסות' },
+  { command: 'tracking', description: 'הטיסות במעקב' },
+  { command: 'quota', description: 'מכסת חיפושים' },
+  { command: 'blocked', description: 'טיסות מוסתרות' },
+];
 
 export function createBot(
   env: Env,
@@ -54,16 +63,35 @@ export function createBot(
     if (isClosed(now())) return ctx.reply(closedText());
     const kb = new InlineKeyboard();
     for (const f of getProfile(env).favorites) kb.text(f.name, `dst:${f.code}`).row();
-    kb.text('אחר', 'dst:other');
+    kb.text('אחר', 'dst:other').row().text('📋 המעקבים שלי', 'menu:tracking');
     return ctx.reply('לאן טסים?', { reply_markup: kb });
   }
-  bot.command(['start', 'search'], showDestinations);
+  bot.command('start', async (ctx) => {
+    await ctx.api.setMyCommands(COMMANDS).catch(() => {});
+    return showDestinations(ctx);
+  });
+  bot.command('search', showDestinations);
+  bot.callbackQuery('menu:start', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    return showDestinations(ctx);
+  });
+  bot.callbackQuery('menu:tracking', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    return showTracking(ctx);
+  });
+  bot.callbackQuery(/^screen:(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const screen = await loadOption<Screen>(env.DB, Number(ctx.match[1]));
+    if (!screen?.text) return ctx.reply(expiredText());
+    return ctx.reply(screen.text, { reply_markup: { inline_keyboard: screen.keyboard } });
+  });
 
   async function showMonths(ctx: Context, dest: string) {
     const months = monthOptions(now());
     if (!months.length) return ctx.reply(closedText());
     const kb = new InlineKeyboard();
     for (const m of months) kb.text(`${m.slice(5)}.${m.slice(0, 4)}`, `mon:${dest}:${m}`).row();
+    kb.text(BACK, 'menu:start');
     return ctx.reply('איזה חודש?', { reply_markup: kb });
   }
 
@@ -82,6 +110,7 @@ export function createBot(
     for (const p of Object.keys(PATTERN_LABELS) as Pattern[]) {
       kb.text(PATTERN_LABELS[p], `pat:${ctx.match[1]}:${ctx.match[2]}:${p}`).row();
     }
+    kb.text(BACK, `dst:${ctx.match[1]}`);
     return ctx.reply('אילו ימים?', { reply_markup: kb });
   });
 
@@ -94,7 +123,7 @@ export function createBot(
     const id = await saveOption(env.DB, { dest, pairs } satisfies MonthSearch, at());
     const warn = needsConfirm(left, pairs.length) ? `\n⚠️ זה יוריד אותך מתחת לרזרבה (${CONFIG.quotaReserve})` : '';
     return ctx.reply(`החיפוש יעלה ${pairs.length} חיפושים, נשארו ${left}.${warn}`, {
-      reply_markup: new InlineKeyboard().text('חפש', `go:${id}`),
+      reply_markup: new InlineKeyboard().text('חפש', `go:${id}`).row().text(BACK, `mon:${dest}:${month}`),
     });
   });
 
@@ -104,6 +133,7 @@ export function createBot(
     if (!job) return ctx.reply(expiredText());
     background(ctx, async () => {
       const results = await searchPairs(env, job.dest, job.pairs, now());
+      const screenId = await saveOption(env.DB, {}, at());
       const kb = new InlineKeyboard();
       const lines: string[] = [];
       for (const [i, pair] of job.pairs.entries()) {
@@ -114,11 +144,14 @@ export function createBot(
         else {
           const row = `${fmtPair(pair)} · ${fmtPrice(best.price)} · ${fmtLeg(best.leg)}`;
           lines.push(row);
-          const id = await saveOption(env.DB, { dest: job.dest, pair, result } satisfies PairView, at());
+          const id = await saveOption(env.DB, { dest: job.dest, pair, result, back: screenId } satisfies PairView, at());
           kb.text(row, `pair:${id}`).row();
         }
       }
-      await ctx.reply(lines.join('\n'), { reply_markup: kb });
+      kb.text(BACK, `mon:${job.dest}:${job.pairs[0].out.slice(0, 7)}`);
+      const text = lines.join('\n');
+      await replaceOption(env.DB, screenId, { text, keyboard: kb.inline_keyboard } satisfies Screen);
+      await ctx.reply(text, { reply_markup: kb });
     });
   });
 
@@ -126,18 +159,22 @@ export function createBot(
     await ctx.answerCallbackQuery();
     const view = await loadOption<PairView>(env.DB, Number(ctx.match[1]));
     if (!view) return ctx.reply(expiredText());
+    const screenId = await saveOption(env.DB, {}, at());
     const kb = new InlineKeyboard();
     for (const outbound of view.result.options.filter((o) => o.departureToken)) {
       const id = await saveOption(
         env.DB,
-        { dest: view.dest, pair: view.pair, outbound, cheapest: view.result.options[0] } satisfies OutboundPick,
+        { dest: view.dest, pair: view.pair, outbound, cheapest: view.result.options[0], back: screenId } satisfies OutboundPick,
         at(),
       );
       kb.text(`${fmtLeg(outbound.leg)} · מ־${fmtPrice(outbound.price)}${bagNote(outbound)}`, `out:${id}`).row();
     }
     await addHideButton(kb, view.result.options.map((o) => o.leg));
     if (view.result.googleUrl) kb.url('Google Flights', view.result.googleUrl);
-    return ctx.reply(`${fmtPair(view.pair)} · טיסות הלוך`, { reply_markup: kb });
+    if (view.back) kb.row().text(BACK, `screen:${view.back}`);
+    const text = `${fmtPair(view.pair)} · טיסות הלוך`;
+    await replaceOption(env.DB, screenId, { text, keyboard: kb.inline_keyboard } satisfies Screen);
+    return ctx.reply(text, { reply_markup: kb });
   });
 
   async function openReturns(ctx: Context, id: number) {
@@ -153,6 +190,7 @@ export function createBot(
       }
       await addHideButton(kb, rets.options.map((o) => o.leg));
       if (rets.googleUrl) kb.url('Google Flights', rets.googleUrl);
+      if (pick.back) kb.row().text(BACK, `screen:${pick.back}`);
       await ctx.reply(`${fmtPair(pick.pair)} · בחרו טיסת חזור ולחצו "אני רוצה את זה"`, { reply_markup: kb });
     });
   }
@@ -236,7 +274,8 @@ export function createBot(
     return ctx.reply('טיסות מוסתרות (לחיצה מחזירה):', { reply_markup: kb });
   });
 
-  bot.command('tracking', async (ctx) => {
+  bot.command('tracking', (ctx) => showTracking(ctx));
+  async function showTracking(ctx: Context) {
     const active = await activeTracked(env.DB);
     if (!active.length) return ctx.reply('אין מעקבים');
     for (const t of active) {
@@ -246,7 +285,7 @@ export function createBot(
         reply_markup: trackedKeyboard(t.id),
       });
     }
-  });
+  }
 
   bot.command('quota', async (ctx) => {
     const [left, used] = await Promise.all([searchesLeft(env, now()), searchesUsed(env, now())]);
