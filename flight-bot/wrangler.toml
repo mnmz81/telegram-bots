@@ -1,0 +1,13 @@
+name = "flight-bot"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flight-bot"
+database_id = "TODO-from-wrangler-d1-create"
+migrations_dir = "migrations"
+
+[triggers]
+# fires at both UTC candidates for 11:00 / 20:00 Israel (UTC+2 / UTC+3); the handler filters by Israel hour
+crons = ["0 8,9,17,18 * * *"]
