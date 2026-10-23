@@ -19,11 +19,15 @@ Private Telegram bot: searches direct round trips on flexible weekends (SerpApi 
    ```bash
    npm run deploy
    ```
-7. Store the secrets and register the Telegram webhook in one go (prompts for each value, checks its format, then saves it with `wrangler secret put`):
+7. From the repo root, store the Telegram secrets plus the SerpApi key and register the webhook (prompts for each value, checks it, saves it with `wrangler secret put`):
    ```bash
-   scripts/setup-secrets.sh https://flight-bot.<account>.workers.dev
+   scripts/setup-bot.sh flight-bot --secret SERPAPI_KEY --url https://flight-bot.<account>.workers.dev
    ```
-   It asks for the BotFather token, the SerpApi key, your numeric Telegram id, and the trip profile (home airport, adults, infants on lap, favorite destinations). The profile is stored in the `PROFILE` secret so trip details stay out of the repo. For local runs put the same keys in `.dev.vars` (git-ignored). Re-running overwrites the secrets.
+8. Store the trip profile (home airport, adults, infants on lap, favorite destinations) in the `PROFILE` secret, so trip details stay out of the repo:
+   ```bash
+   scripts/setup-profile.sh
+   ```
+   For local runs put the same keys in `.dev.vars` (git-ignored).
 
 ## Commands
 
