@@ -15,24 +15,15 @@ Private Telegram bot: searches direct round trips on flexible weekends (SerpApi 
    ```bash
    npx wrangler d1 migrations apply flight-bot --remote
    ```
-6. Store the five secrets (each command prompts for the value):
-   ```bash
-   npx wrangler secret put TELEGRAM_BOT_TOKEN
-   npx wrangler secret put SERPAPI_KEY
-   npx wrangler secret put OWNER_ID
-   npx wrangler secret put WEBHOOK_SECRET
-   npx wrangler secret put PROFILE
-   ```
-   `WEBHOOK_SECRET` is any long random string (`openssl rand -hex 24`).
-   `PROFILE` holds the trip details, so they stay out of the repo. One line of JSON: `{"origin":"AAA","adults":2,"infantsOnLap":1,"favorites":[{"code":"BBB","name":"City"}]}`. `origin` is the home airport code; `adults` defaults to 1, `infantsOnLap` to 0, `favorites` to none. For local runs put the same keys in `.dev.vars` (git-ignored).
-7. Deploy:
+6. Deploy:
    ```bash
    npm run deploy
    ```
-8. Point Telegram at the Worker, using the same token and secret as above:
+7. Store the secrets and register the Telegram webhook in one go (prompts for each value, checks its format, then saves it with `wrangler secret put`):
    ```bash
-   TELEGRAM_BOT_TOKEN=... WEBHOOK_SECRET=... scripts/set-webhook.sh https://flight-bot.<account>.workers.dev
+   scripts/setup-secrets.sh https://flight-bot.<account>.workers.dev
    ```
+   It asks for the BotFather token, the SerpApi key, your numeric Telegram id, and the trip profile (home airport, adults, infants on lap, favorite destinations). The profile is stored in the `PROFILE` secret so trip details stay out of the repo. For local runs put the same keys in `.dev.vars` (git-ignored). Re-running overwrites the secrets.
 
 ## Commands
 
