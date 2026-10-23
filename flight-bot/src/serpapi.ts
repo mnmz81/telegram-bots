@@ -16,6 +16,8 @@ const BAG_FEE_TEXT = 'Checked baggage for a fee';
 const NO_RESULTS = /hasn't returned any results/i;
 
 export const legKey = (leg: Leg): string => `${leg.flightNumber}|${leg.departAt}`;
+// hide key: flight number + departure clock time, so a rescheduled flight shows up again
+export const blockKey = (leg: Leg): string => `${leg.flightNumber} ${leg.departAt.slice(-5)}`;
 
 export function buildParams(profile: Profile, dest: string, pair: DatePair, departureToken?: string): URLSearchParams {
   const p = new URLSearchParams({
@@ -84,7 +86,7 @@ async function search(env: Env, dest: string, pair: DatePair, now: Date, token?:
   const json = await serpFetch(env, '/search.json', buildParams(getProfile(env), dest, pair, token), now);
   const blocked = await blockedFlights(env.DB);
   return {
-    options: parseOptions(json).filter((o) => !blocked.includes(o.leg.flightNumber)),
+    options: parseOptions(json).filter((o) => !blocked.includes(blockKey(o.leg))),
     googleUrl: json.search_metadata?.google_flights_url ?? '',
   };
 }

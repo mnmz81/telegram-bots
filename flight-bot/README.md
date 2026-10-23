@@ -29,7 +29,7 @@ Private Telegram bot: searches direct round trips on flexible weekends (SerpApi 
 
 `/search` start a search, `/tracking` tracked flights, `/quota` searches left and used, `/blocked` hidden flights.
 
-Under every flight list, "🚫 להסתיר טיסה" hides a flight number (say, a night flight) from all later searches and from price tracking. `/blocked` brings it back.
+Under every flight list, "🚫 להסתיר טיסה" hides a flight (say, a night flight) from all later searches and from price tracking. It is matched by flight number and departure time, so if the airline moves the flight to another hour it shows up again. `/blocked` brings it back.
 
 The "search" and "I want this" buttons disappear the moment they are tapped, so a double tap cannot run a search twice or track a flight twice.
 

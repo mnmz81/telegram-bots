@@ -121,15 +121,15 @@ describe('bot', () => {
     const leg = { airline: 'A', flightNumber: 'A 1', departAt: '2026-12-03 22:00', arriveAt: '2026-12-04 01:00' };
     const id = await saveOption(env.DB, { legs: [leg] }, 't');
     await send(tap(1, `hidemenu:${id}`), december);
-    expect(JSON.stringify(calls('sendMessage'))).toContain('hide:A 1');
+    expect(JSON.stringify(calls('sendMessage'))).toContain('hide:A 1 22:00');
   });
   it('hides a flight and brings it back from /blocked', async () => {
-    await send(tap(1, 'hide:A 1'), december);
-    expect(await blockedFlights(env.DB)).toContain('A 1');
+    await send(tap(1, 'hide:A 1 22:00'), december);
+    expect(await blockedFlights(env.DB)).toContain('A 1 22:00');
     await send(command(1, '/blocked'));
-    expect(JSON.stringify(calls('sendMessage'))).toContain('unhide:A 1');
-    await send(tap(1, 'unhide:A 1'));
-    expect(await blockedFlights(env.DB)).not.toContain('A 1');
+    expect(JSON.stringify(calls('sendMessage'))).toContain('unhide:A 1 22:00');
+    await send(tap(1, 'unhide:A 1 22:00'));
+    expect(await blockedFlights(env.DB)).not.toContain('A 1 22:00');
   });
   it('says when nothing is hidden', async () => {
     for (const f of await blockedFlights(env.DB)) await setBlocked(env.DB, f, false);

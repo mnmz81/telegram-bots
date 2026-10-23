@@ -9,7 +9,7 @@ import { closedText, expiredText, fmtLeg, fmtPair, fmtPrice, trackedKeyboard } f
 import { getProfile, ConfigError } from './profile';
 import { needsConfirm } from './quota';
 import {
-  SearchClosedError, SerpApiError, legKey, searchPairs, searchReturns, searchesLeft, searchesUsed,
+  SearchClosedError, SerpApiError, blockKey, legKey, searchPairs, searchReturns, searchesLeft, searchesUsed,
   type Leg, type Option, type SearchResult,
 } from './serpapi';
 
@@ -212,7 +212,7 @@ export function createBot(
     const menu = await loadOption<{ legs: Leg[] }>(env.DB, Number(ctx.match[1]));
     if (!menu) return ctx.reply(expiredText());
     const kb = new InlineKeyboard();
-    for (const leg of menu.legs) kb.text(`🚫 ${fmtLeg(leg)}`, `hide:${leg.flightNumber}`).row();
+    for (const leg of menu.legs) kb.text(`🚫 ${fmtLeg(leg)}`, `hide:${blockKey(leg)}`).row();
     return ctx.reply('איזו טיסה להסתיר? היא לא תופיע יותר בחיפושים ובמעקב.', { reply_markup: kb });
   });
 

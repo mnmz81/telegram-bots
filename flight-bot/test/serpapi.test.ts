@@ -69,13 +69,16 @@ describe('searchPair', () => {
 });
 
 describe('blocked flights', () => {
-  it('drops flights the owner blocked from search results', async () => {
-    await setBlocked(env.DB, 'W6 2406', true);
+  it('drops a blocked flight only at the blocked departure time', async () => {
+    await setBlocked(env.DB, 'W6 2406 14:30', true);
+    await setBlocked(env.DB, 'OS 858 09:00', true); // schedule moved: OS 858 now leaves 10:15, so it must show again
     fetchMock.mockResolvedValueOnce(Response.json(fixture));
     const r = await searchPair(env, 'BBB', pair, inDecember);
-    await setBlocked(env.DB, 'W6 2406', false);
-    expect(r.options.map((o) => o.leg.flightNumber)).not.toContain('W6 2406');
-    expect(r.options).toHaveLength(4);
+    await setBlocked(env.DB, 'W6 2406 14:30', false);
+    await setBlocked(env.DB, 'OS 858 09:00', false);
+    const numbers = r.options.map((o) => o.leg.flightNumber);
+    expect(numbers).not.toContain('W6 2406');
+    expect(numbers).toContain('OS 858');
   });
 });
 
