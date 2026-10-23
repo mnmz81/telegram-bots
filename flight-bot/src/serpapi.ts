@@ -1,6 +1,6 @@
 import { CONFIG, type Env } from './config';
 import { isClosed, israelNow, type DatePair } from './dates';
-import { kvGet, kvSet } from './db';
+import { blockedFlights, kvGet, kvSet } from './db';
 import { getProfile, type Profile } from './profile';
 
 export type Leg = { airline: string; flightNumber: string; departAt: string; arriveAt: string };
@@ -82,7 +82,11 @@ async function serpFetch(env: Env, path: string, params: URLSearchParams, now: D
 
 async function search(env: Env, dest: string, pair: DatePair, now: Date, token?: string): Promise<SearchResult> {
   const json = await serpFetch(env, '/search.json', buildParams(getProfile(env), dest, pair, token), now);
-  return { options: parseOptions(json), googleUrl: json.search_metadata?.google_flights_url ?? '' };
+  const blocked = await blockedFlights(env.DB);
+  return {
+    options: parseOptions(json).filter((o) => !blocked.includes(o.leg.flightNumber)),
+    googleUrl: json.search_metadata?.google_flights_url ?? '',
+  };
 }
 
 export const searchPair = (env: Env, dest: string, pair: DatePair, now = new Date()) =>

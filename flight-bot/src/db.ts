@@ -96,3 +96,15 @@ export const kvSet = (db: D1Database, key: string, value: string | null) =>
   value === null
     ? db.prepare(`DELETE FROM kv WHERE key = ?`).bind(key).run()
     : db.prepare(`INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).bind(key, value).run();
+
+// flight numbers the owner hid (e.g. a night flight); applied to every search, so tracking ignores them too
+export async function blockedFlights(db: D1Database): Promise<string[]> {
+  return JSON.parse((await kvGet(db, 'blocked')) ?? '[]');
+}
+
+export async function setBlocked(db: D1Database, flightNumber: string, blocked: boolean): Promise<void> {
+  const list = new Set(await blockedFlights(db));
+  if (blocked) list.add(flightNumber);
+  else list.delete(flightNumber);
+  await kvSet(db, 'blocked', JSON.stringify([...list]));
+}

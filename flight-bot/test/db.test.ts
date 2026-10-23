@@ -2,7 +2,7 @@ import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import {
   activeTracked, addCheck, addTracked, history, kvGet, kvSet, lastCheck,
-  loadOption, pruneOptions, saveOption, stopAll, stopExpired, stopTracked, takeOption,
+  blockedFlights, loadOption, pruneOptions, saveOption, setBlocked, stopAll, stopExpired, stopTracked, takeOption,
 } from '../src/db';
 
 const item = { dest: 'BBB', out: '2026-12-03', ret: '2026-12-07', outKey: 'OS 858|2026-12-03 10:15', retKey: 'OS 859|2026-12-07 12:00', label: '3–7.12' };
@@ -61,6 +61,16 @@ describe('cached options', () => {
     await pruneOptions(env.DB, '2026-11-01T00:00:00Z');
     expect(await loadOption(env.DB, old)).toBeNull();
     expect(await loadOption(env.DB, fresh)).toEqual({ a: 2 });
+  });
+});
+
+describe('blocked flights', () => {
+  it('adds and removes a flight number', async () => {
+    await setBlocked(env.DB, 'OS 82', true);
+    await setBlocked(env.DB, 'OS 82', true);
+    expect((await blockedFlights(env.DB)).filter((f) => f === 'OS 82')).toHaveLength(1);
+    await setBlocked(env.DB, 'OS 82', false);
+    expect(await blockedFlights(env.DB)).not.toContain('OS 82');
   });
 });
 

@@ -2,14 +2,15 @@ import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { CONFIG, type Env } from './config';
 import { isClosed, israelNow, monthOptions, weekendPairs, type DatePair, type Pattern } from './dates';
 import {
-  activeTracked, addTracked, history, kvGet, kvSet, lastCheck, loadOption, saveOption, stopAll, stopTracked, takeOption,
+  activeTracked, addTracked, blockedFlights, history, kvGet, kvSet, lastCheck, loadOption, saveOption, setBlocked,
+  stopAll, stopTracked, takeOption,
 } from './db';
 import { closedText, expiredText, fmtLeg, fmtPair, fmtPrice, trackedKeyboard } from './messages';
 import { getProfile, ConfigError } from './profile';
 import { needsConfirm } from './quota';
 import {
   SearchClosedError, SerpApiError, legKey, searchPairs, searchReturns, searchesLeft, searchesUsed,
-  type Option, type SearchResult,
+  type Leg, type Option, type SearchResult,
 } from './serpapi';
 
 export const isOwner = (fromId: number | undefined, ownerId: string): boolean =>
@@ -134,6 +135,7 @@ export function createBot(
       );
       kb.text(`${fmtLeg(outbound.leg)} · מ־${fmtPrice(outbound.price)}${bagNote(outbound)}`, `out:${id}`).row();
     }
+    await addHideButton(kb, view.result.options.map((o) => o.leg));
     if (view.result.googleUrl) kb.url('Google Flights', view.result.googleUrl);
     return ctx.reply(`${fmtPair(view.pair)} · טיסות הלוך`, { reply_markup: kb });
   });
@@ -149,6 +151,7 @@ export function createBot(
         const wantId = await saveOption(env.DB, { ...pick, ret } satisfies WantPick, at());
         kb.text(`${fmtLeg(ret.leg)} · ${fmtPrice(ret.price)}${bagNote(ret)}`, `want:${wantId}`).row();
       }
+      await addHideButton(kb, rets.options.map((o) => o.leg));
       if (rets.googleUrl) kb.url('Google Flights', rets.googleUrl);
       await ctx.reply(`${fmtPair(pick.pair)} · בחרו טיסת חזור ולחצו "אני רוצה את זה"`, { reply_markup: kb });
     });
@@ -195,6 +198,42 @@ export function createBot(
     await ctx.answerCallbackQuery();
     await stopAll(env.DB);
     return ctx.reply('סגרת טיסה, כל המעקבים נעצרו');
+  });
+
+  // one button under a flight list opens a hide menu; a 🚫 on every row would squeeze the flight labels
+  async function addHideButton(kb: InlineKeyboard, legs: Leg[]) {
+    if (!legs.length) return;
+    const id = await saveOption(env.DB, { legs }, at());
+    kb.text('🚫 להסתיר טיסה', `hidemenu:${id}`).row();
+  }
+
+  bot.callbackQuery(/^hidemenu:(\d+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const menu = await loadOption<{ legs: Leg[] }>(env.DB, Number(ctx.match[1]));
+    if (!menu) return ctx.reply(expiredText());
+    const kb = new InlineKeyboard();
+    for (const leg of menu.legs) kb.text(`🚫 ${fmtLeg(leg)}`, `hide:${leg.flightNumber}`).row();
+    return ctx.reply('איזו טיסה להסתיר? היא לא תופיע יותר בחיפושים ובמעקב.', { reply_markup: kb });
+  });
+
+  bot.callbackQuery(/^hide:(.+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await setBlocked(env.DB, ctx.match[1], true);
+    return ctx.reply(`הטיסה ${ctx.match[1]} הוסתרה. להחזרה: /blocked`);
+  });
+
+  bot.callbackQuery(/^unhide:(.+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await setBlocked(env.DB, ctx.match[1], false);
+    return ctx.reply(`הטיסה ${ctx.match[1]} חזרה לחיפושים`);
+  });
+
+  bot.command('blocked', async (ctx) => {
+    const list = await blockedFlights(env.DB);
+    if (!list.length) return ctx.reply('אין טיסות מוסתרות');
+    const kb = new InlineKeyboard();
+    for (const f of list) kb.text(`↩️ ${f}`, `unhide:${f}`).row();
+    return ctx.reply('טיסות מוסתרות (לחיצה מחזירה):', { reply_markup: kb });
   });
 
   bot.command('tracking', async (ctx) => {

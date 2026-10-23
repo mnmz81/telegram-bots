@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBot, isOwner } from '../src/bot';
-import { addTracked, activeTracked, saveOption, stopAll } from '../src/db';
+import { addTracked, activeTracked, blockedFlights, saveOption, setBlocked, stopAll } from '../src/db';
 import fixture from './fixtures/flights.json';
 
 const e = { ...env, TELEGRAM_BOT_TOKEN: 't', OWNER_ID: '1', SERPAPI_KEY: 'k', WEBHOOK_SECRET: 's' };
@@ -116,6 +116,25 @@ describe('bot', () => {
     await send(command(1, '/quota'));
     expect(sentText()).toContain('נשארו 200');
     expect(sentText()).toContain('נוצלו');
+  });
+  it('offers each listed flight for hiding', async () => {
+    const leg = { airline: 'A', flightNumber: 'A 1', departAt: '2026-12-03 22:00', arriveAt: '2026-12-04 01:00' };
+    const id = await saveOption(env.DB, { legs: [leg] }, 't');
+    await send(tap(1, `hidemenu:${id}`), december);
+    expect(JSON.stringify(calls('sendMessage'))).toContain('hide:A 1');
+  });
+  it('hides a flight and brings it back from /blocked', async () => {
+    await send(tap(1, 'hide:A 1'), december);
+    expect(await blockedFlights(env.DB)).toContain('A 1');
+    await send(command(1, '/blocked'));
+    expect(JSON.stringify(calls('sendMessage'))).toContain('unhide:A 1');
+    await send(tap(1, 'unhide:A 1'));
+    expect(await blockedFlights(env.DB)).not.toContain('A 1');
+  });
+  it('says when nothing is hidden', async () => {
+    for (const f of await blockedFlights(env.DB)) await setBlocked(env.DB, f, false);
+    await send(command(1, '/blocked'));
+    expect(sentText()).toContain('אין טיסות מוסתרות');
   });
   it('refuses a third tracked item and offers to stop the others', async () => {
     const item = { dest: 'BBB', out: '2026-12-03', ret: '2026-12-07', outKey: 'a', retKey: 'b', label: '3–7.12' };

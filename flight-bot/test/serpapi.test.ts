@@ -11,6 +11,7 @@ import {
 } from '../src/serpapi';
 import { env as cfEnv } from 'cloudflare:test';
 import { getProfile } from '../src/profile';
+import { setBlocked } from '../src/db';
 import type { Env } from '../src/config';
 
 const env = { ...cfEnv, SERPAPI_KEY: 'k' } as unknown as Env;
@@ -64,6 +65,17 @@ describe('searchPair', () => {
     const r = await searchPair(env, 'BBB', pair, inDecember);
     expect(r.options).toHaveLength(5);
     expect(r.googleUrl).toContain('google.com/travel/flights');
+  });
+});
+
+describe('blocked flights', () => {
+  it('drops flights the owner blocked from search results', async () => {
+    await setBlocked(env.DB, 'W6 2406', true);
+    fetchMock.mockResolvedValueOnce(Response.json(fixture));
+    const r = await searchPair(env, 'BBB', pair, inDecember);
+    await setBlocked(env.DB, 'W6 2406', false);
+    expect(r.options.map((o) => o.leg.flightNumber)).not.toContain('W6 2406');
+    expect(r.options).toHaveLength(4);
   });
 });
 
