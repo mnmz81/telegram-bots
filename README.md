@@ -19,3 +19,10 @@ Secrets never live in this repo: they are stored with `wrangler secret put` (or 
    It asks for the BotFather token (checked with Telegram), your id and each `--secret`, generates `WEBHOOK_SECRET`, saves everything with `wrangler secret put`, and registers the webhook. Without `--url` it deploys first and reads the URL from the deploy output.
 
 Every bot reads `TELEGRAM_BOT_TOKEN`, `OWNER_ID` and `WEBHOOK_SECRET`, and answers only `OWNER_ID`.
+
+## Keeping secrets out (this repo is public)
+
+- Secrets live only in Cloudflare (`wrangler secret put`) and, for local runs, in `.dev.vars`, which is git-ignored.
+- `.githooks/pre-commit` blocks any commit that adds `.dev.vars`/`.env`/key files or a line that looks like a Telegram token, a 64-hex API key, a private key, or `key/secret/token/password = "<long value>"`. It is turned on per clone with `git config core.hooksPath .githooks`; `scripts/setup-bot.sh` does that for you.
+- GitHub secret scanning and push protection are on as a second net.
+- Trip details and other personal data go in secrets too (see flight-bot's `PROFILE`), not in code.

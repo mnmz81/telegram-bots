@@ -3,3 +3,8 @@ node_modules
 .wrangler
 .dev.vars
 .superpowers
+.env
+.env.*
+*.pem
+*.key
+*.p12

@@ -22,6 +22,9 @@ if [[ ${1:-} == --selftest ]]; then
   exit 0
 fi
 
+# turn on the repo's secret-blocking pre-commit hook for this clone
+git -C "$(dirname "$0")/.." config core.hooksPath .githooks
+
 dir=${1:-}
 [ -n "$dir" ] && [ "${dir:0:2}" != -- ] || { sed -n 2,8p "$0" >&2; exit 2; }
 shift
