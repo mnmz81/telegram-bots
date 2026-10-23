@@ -39,8 +39,6 @@ export function buildParams(profile: Profile, dest: string, pair: DatePair, depa
   return p;
 }
 
-const timeOf = (stamp: string) => stamp.slice(-5);
-
 export function parseOptions(json: any): Option[] {
   const itineraries: any[] = [...(json?.best_flights ?? []), ...(json?.other_flights ?? [])];
   const options: Option[] = [];
@@ -50,7 +48,6 @@ export function parseOptions(json: any): Option[] {
     const departAt: string = seg.departure_airport?.time;
     const arriveAt: string = seg.arrival_airport?.time;
     if (!departAt || !arriveAt) continue;
-    if (timeOf(departAt) < CONFIG.earliestDepart || timeOf(arriveAt) > CONFIG.latestArrive) continue;
     const notes: string[] = [...(seg.extensions ?? []), ...(it.extensions ?? [])];
     options.push({
       leg: { airline: seg.airline, flightNumber: seg.flight_number, departAt, arriveAt },

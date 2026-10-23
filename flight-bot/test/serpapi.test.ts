@@ -25,13 +25,13 @@ afterEach(() => {
 });
 
 describe('parseOptions', () => {
-  it('keeps direct in-window flights (depart from 08:00, land by 21:00) sorted by price and marks bag fees', () => {
+  it('keeps every direct priced flight, sorted by price, and marks bag fees', () => {
     const opts = parseOptions(fixture);
-    expect(opts.map((o) => o.price)).toEqual([1200, 1500, 1900]);
-    expect(opts[0].bagExtra).toBe(true); // Wizz Air
-    expect(opts[1].bagExtra).toBe(true); // extension text, lands exactly 21:00
-    expect(opts[2].bagExtra).toBe(false);
-    expect(opts[2].departureToken).toBe('tokA');
+    expect(opts.map((o) => o.price)).toEqual([1200, 1500, 1900, 2500, 2600]); // time window is SerpApi's job, not ours
+    expect(opts.find((o) => o.price === 1200)?.bagExtra).toBe(true); // Wizz Air
+    expect(opts.find((o) => o.price === 1500)?.bagExtra).toBe(true); // extension text
+    expect(opts.find((o) => o.price === 1900)?.bagExtra).toBe(false);
+    expect(opts.find((o) => o.price === 1900)?.departureToken).toBe('tokA');
   });
   it('returns nothing for an empty response', () => {
     expect(parseOptions({})).toEqual([]);
@@ -62,7 +62,7 @@ describe('searchPair', () => {
   it('returns options and the Google Flights link', async () => {
     fetchMock.mockResolvedValueOnce(Response.json(fixture));
     const r = await searchPair(env, 'BBB', pair, inDecember);
-    expect(r.options).toHaveLength(3);
+    expect(r.options).toHaveLength(5);
     expect(r.googleUrl).toContain('google.com/travel/flights');
   });
 });
@@ -75,8 +75,8 @@ describe('searchPairs', () => {
       .mockResolvedValueOnce(Response.json(fixture));
     const r = await searchPairs(env, 'BBB', [pair, pair, pair], inDecember);
     expect(r[1]).toBeNull();
-    expect(r[0]?.options).toHaveLength(3);
-    expect(r[2]?.options).toHaveLength(3);
+    expect(r[0]?.options).toHaveLength(5);
+    expect(r[2]?.options).toHaveLength(5);
   });
 });
 

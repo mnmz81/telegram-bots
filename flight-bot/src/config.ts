@@ -2,9 +2,7 @@ export const CONFIG = {
   currency: 'ILS',
   gl: 'il',
   hl: 'en',
-  earliestDepart: '08:00',
-  latestArrive: '21:00',
-  // outbound_times / return_times: departure hours then arrival hours; each number is the start of an hour block,
+  // the only time filter: sent to SerpApi as outbound_times / return_times (departure hours then arrival hours); each number is the start of an hour block,
   // so arrival '20' covers up to 20:59
   timesParam: '8,23,8,20',
   // first month offered in the month picker
