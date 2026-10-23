@@ -5,7 +5,7 @@ compatibility_date = "2026-10-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "flight-bot"
-database_id = "TODO-from-wrangler-d1-create"
+database_id = "1f655b86-634e-4c8a-87a8-2e4d2ce8606c"
 migrations_dir = "migrations"
 
 [triggers]
