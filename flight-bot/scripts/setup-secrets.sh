@@ -13,7 +13,8 @@ valid_digits() { [[ $1 =~ ^[0-9]+$ ]]; }
 valid_iata() { [[ $1 =~ ^[A-Z]{3}$ ]]; }
 
 if [[ ${1:-} == --selftest ]]; then
-  valid_token '123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw' || { echo "FAIL real-looking token"; exit 1; }
+  # built at runtime so secret scanners do not mistake the test value for a real token
+  valid_token "123456789:$(printf 'A%.0s' {1..35})" || { echo "FAIL token-shaped value"; exit 1; }
   ! valid_token 'echo ${#TELEGRAM_BOT_TOKEN}' || { echo "FAIL junk token accepted"; exit 1; }
   ! valid_token '' || { echo "FAIL empty token accepted"; exit 1; }
   valid_serpapi "$(printf 'a%.0s' {1..64})" || { echo "FAIL serpapi key"; exit 1; }
