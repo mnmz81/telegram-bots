@@ -41,7 +41,11 @@ describe('isClosed', () => {
 });
 
 describe('monthOptions', () => {
-  it('stops at the search-until month', () => {
-    expect(monthOptions(new Date('2026-10-22T12:00:00Z'))).toEqual(['2026-10', '2026-11', '2026-12']);
+  it('starts at the search-from month and stops at the search-until month', () => {
+    expect(monthOptions(new Date('2026-10-22T12:00:00Z'))).toEqual(['2026-12']);
+  });
+  it('starts from the current month once it is past search-from', () => {
+    expect(monthOptions(new Date('2026-12-05T12:00:00Z'))).toEqual(['2026-12']);
+    expect(monthOptions(new Date('2026-10-22T12:00:00Z'), '2027-02-28', '2026-11')).toEqual(['2026-11', '2026-12', '2027-01', '2027-02']);
   });
 });

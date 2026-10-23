@@ -5,13 +5,16 @@ import type { Notice } from './tracking';
 
 export const fmtPrice = (n: number): string => `₪${n.toLocaleString('en-US')}`;
 
+// LRI..PDI keeps ranges like 3–7.12 left-to-right inside Hebrew (RTL) lines instead of reading 7.12–3
+const ltr = (s: string): string => `\u2066${s}\u2069`;
+
 export function fmtPair(p: DatePair): string {
   const [, m1, d1] = p.out.split('-').map(Number);
   const [, m2, d2] = p.ret.split('-').map(Number);
-  return m1 === m2 ? `${d1}–${d2}.${m2}` : `${d1}.${m1}–${d2}.${m2}`;
+  return ltr(m1 === m2 ? `${d1}–${d2}.${m2}` : `${d1}.${m1}–${d2}.${m2}`);
 }
 
-export const fmtLeg = (l: Leg): string => `${l.airline} ${l.departAt.slice(-5)}→${l.arriveAt.slice(-5)}`;
+export const fmtLeg = (l: Leg): string => ltr(`${l.airline} ${l.departAt.slice(-5)}→${l.arriveAt.slice(-5)}`);
 
 export function noticeText(n: Notice): string {
   switch (n.kind) {

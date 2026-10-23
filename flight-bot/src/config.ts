@@ -6,6 +6,8 @@ export const CONFIG = {
   latestArrive: '18:00',
   // outbound_times / return_times: departure range then arrival range, hours
   timesParam: '8,18,8,18',
+  // first month offered in the month picker
+  searchFrom: '2026-12',
   // last Israel date on which any SerpApi call may run; move it to re-open the bot for a later trip
   searchUntil: '2026-12-31',
   // SerpApi free plan size, used only when account.json cannot tell how many searches are left

@@ -39,12 +39,13 @@ export function isClosed(now: Date, until: string = CONFIG.searchUntil): boolean
   return israelNow(now).date > until;
 }
 
-export function monthOptions(now: Date, until: string = CONFIG.searchUntil): string[] {
+export function monthOptions(now: Date, until: string = CONFIG.searchUntil, from: string = CONFIG.searchFrom): string[] {
   const [y, m] = israelNow(now).date.split('-').map(Number);
+  const start = new Date(Date.UTC(y, m - 1, 1)).toISOString().slice(0, 7);
+  const [fy, fm] = (start > from ? start : from).split('-').map(Number);
   const months: string[] = [];
   for (let i = 0; i < CONFIG.monthsAhead; i++) {
-    const d = new Date(Date.UTC(y, m - 1 + i, 1));
-    const key = iso(d).slice(0, 7);
+    const key = new Date(Date.UTC(fy, fm - 1 + i, 1)).toISOString().slice(0, 7);
     if (key > until.slice(0, 7)) break;
     months.push(key);
   }
