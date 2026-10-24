@@ -1,0 +1,14 @@
+name = "tech-digest-bot"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tech-digest-bot"
+# paste the id printed by `npx wrangler d1 create tech-digest-bot`
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[triggers]
+# :50 fetches a slice of the feeds + breaking check; :00 sends digests / the weekly email when the Israel hour matches
+crons = ["50 * * * *", "0 * * * *"]
