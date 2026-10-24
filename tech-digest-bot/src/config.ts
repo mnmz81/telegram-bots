@@ -3,7 +3,7 @@ export const CONFIG = {
   digestHours: [8, 20],
   weeklyWeekday: 'Fri',
   weeklyHour: 9,
-  digestMax: 12,
+  digestMax: 25,
   // clusters offered to Gemini per digest
   maxCandidates: 80,
   // only the newest N items of each feed are parsed (OpenAI's feed alone holds 1300+)
