@@ -24,5 +24,8 @@
     "vitest": "^5.0.5",
     "wrangler": "^4.152.0"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "undici": "7.30.1"
+  }
 }
