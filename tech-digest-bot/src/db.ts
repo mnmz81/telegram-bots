@@ -39,20 +39,8 @@ export async function allSources(db: D1Database): Promise<Source[]> {
   return results.map(toSource);
 }
 
-export async function addSource(db: D1Database, name: string, url: string): Promise<boolean> {
-  const r = await db.prepare(`INSERT OR IGNORE INTO sources (name, url) VALUES (?, ?)`).bind(name, url).run();
-  return r.meta.changes > 0;
-}
-
 export const toggleSource = (db: D1Database, id: number) =>
   db.prepare(`UPDATE sources SET enabled = 1 - enabled WHERE id = ?`).bind(id).run();
-
-// built-in sources can only be switched off, never deleted (the next seed would bring them back)
-export const deleteSource = (db: D1Database, id: number) =>
-  db.batch([
-    db.prepare(`DELETE FROM items WHERE source_id = ? AND EXISTS (SELECT 1 FROM sources WHERE id = ? AND builtin = 0)`).bind(id, id),
-    db.prepare(`DELETE FROM sources WHERE id = ? AND builtin = 0`).bind(id),
-  ]);
 
 // returns the new fail count
 export async function recordFetch(db: D1Database, id: number, ok: boolean): Promise<number> {
@@ -121,9 +109,20 @@ export async function saveDigest(db: D1Database, kind: 'scheduled' | 'now' | 'al
   return rows.map((r) => toDigestItem(r.results[0]));
 }
 
-export async function digestItem(db: D1Database, id: number): Promise<DigestItem | null> {
-  const r = await db.prepare(`SELECT * FROM digest_items WHERE id = ?`).bind(id).first<Record<string, any>>();
-  return r ? toDigestItem(r) : null;
+export type ItemState = { item: DigestItem; vote: number; saved: boolean; alert: boolean };
+
+// everything a card needs in one query: a tap should answer fast
+export async function itemState(db: D1Database, id: number): Promise<ItemState | null> {
+  const r = await db
+    .prepare(
+      `SELECT di.*, COALESCE(f.vote, 0) AS v, s.di_id IS NOT NULL AS sv, d.kind = 'alert' AS is_alert
+       FROM digest_items di JOIN digests d ON d.id = di.digest_id
+       LEFT JOIN feedback f ON f.di_id = di.id LEFT JOIN saved s ON s.di_id = di.id
+       WHERE di.id = ?`,
+    )
+    .bind(id)
+    .first<Record<string, any>>();
+  return r ? { item: toDigestItem(r), vote: r.v, saved: !!r.sv, alert: !!r.is_alert } : null;
 }
 
 export const setExpanded = (db: D1Database, id: number, text: string) =>

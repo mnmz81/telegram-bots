@@ -1,6 +1,10 @@
 import { env } from 'cloudflare:test';
 import { vi } from 'vitest';
-import type { Env } from '../src/config';
+import { CONFIG, type Env } from '../src/config';
+
+// no real waiting between Gemini retries in tests
+CONFIG.geminiRetryMs.tap = [0];
+CONFIG.geminiRetryMs.scheduled = [0, 0, 0];
 
 export const e: Env = { ...env, TELEGRAM_BOT_TOKEN: 't', OWNER_ID: '1', WEBHOOK_SECRET: 's', GEMINI_API_KEY: 'g', RESEND_API_KEY: 'r', OWNER_EMAIL: 'me@example.com' };
 

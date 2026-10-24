@@ -1,7 +1,7 @@
 import { CONFIG, type Env } from './config';
 import { hoursAgo, shortDate } from './dates';
 import { savedItems, toDigestItem, type DigestItem } from './db';
-import { askJson } from './gemini';
+import { askJson, type Patience } from './gemini';
 import { CATEGORY_LABEL, esc } from './messages';
 
 export class EmailError extends Error {}
@@ -19,7 +19,7 @@ export async function weekTop(db: D1Database, now: Date): Promise<DigestItem[]> 
   return results.map(toDigestItem);
 }
 
-async function trends(env: Env, items: DigestItem[]): Promise<string> {
+async function trends(env: Env, items: DigestItem[], patience: Patience): Promise<string> {
   if (!items.length) return '';
   try {
     const r = await askJson<{ trends_he: string }>(
@@ -30,6 +30,7 @@ async function trends(env: Env, items: DigestItem[]): Promise<string> {
         ...items.map((it) => `- ${it.titleHe}: ${it.summaryHe}`),
       ].join('\n'),
       { type: 'OBJECT', properties: { trends_he: { type: 'STRING' } }, required: ['trends_he'] },
+      patience,
     );
     return r.trends_he?.trim() ?? '';
   } catch (err) {
@@ -52,9 +53,9 @@ ${saved.length ? `<h3>📌 שמרת לקריאה</h3><ul>${saved.map(li).join(''
 </body></html>`;
 }
 
-export async function sendWeekly(env: Env, now: Date): Promise<void> {
+export async function sendWeekly(env: Env, now: Date, patience: Patience): Promise<void> {
   const [top, saved] = await Promise.all([weekTop(env.DB, now), savedItems(env.DB)]);
-  const html = weeklyHtml(top, saved, await trends(env, top));
+  const html = weeklyHtml(top, saved, await trends(env, top, patience));
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },

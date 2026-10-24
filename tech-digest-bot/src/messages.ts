@@ -1,5 +1,5 @@
-import { InlineKeyboard } from 'grammy';
-import type { DigestItem, Mute, Source } from './db';
+import { InlineKeyboard, Keyboard } from 'grammy';
+import type { DigestItem, ItemState, Mute, Source } from './db';
 import { CATEGORIES, type Category } from './sources';
 
 export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -51,22 +51,29 @@ export function digestKeyboard(items: DigestItem[]): InlineKeyboard {
 export const alertText = (it: DigestItem) =>
   `🚨 <b>${esc(it.titleHe)}</b>\n${esc(it.summaryHe)}\n<a href="${esc(it.url)}">לכתבה</a> <i>· ${esc(it.sources)}</i>`;
 
-export const alertKeyboard = (it: DigestItem) => new InlineKeyboard().text('⋯ פעולות', `it:${it.id}`);
-
 export const cardText = (it: DigestItem) =>
   `<b>${esc(it.titleHe)}</b>\n${esc(it.summaryHe)}\n<a href="${esc(it.url)}">${esc(it.title)}</a>\n<i>${esc(it.sources)}</i>`;
 
-export function cardKeyboard(it: DigestItem, vote: number, saved: boolean): InlineKeyboard {
-  return new InlineKeyboard()
+// closable: a card opened from a digest number; an alert carries the same buttons on itself and is never closed
+export function cardKeyboard(it: DigestItem, vote: number, saved: boolean, closable = true): InlineKeyboard {
+  const kb = new InlineKeyboard()
     .text(vote === 1 ? '👍 ✓' : '👍', `v:${it.id}:1`)
     .text(vote === -1 ? '👎 ✓' : '👎', `v:${it.id}:-1`)
     .text(saved ? '📌 נשמר ✓' : '📌 שמור', `sv:${it.id}`)
     .row()
     .text('🔍 הרחב', `ex:${it.id}`)
-    .text('🔇 השתק נושא', `mu:${it.id}`)
-    .row()
-    .text(BACK, 'x');
+    .text('🔇 השתק נושא', `mu:${it.id}`);
+  return closable ? kb.row().text(BACK, 'x') : kb;
 }
+
+export const cardView = (s: ItemState) => ({
+  text: s.alert ? alertText(s.item) : cardText(s.item),
+  keyboard: cardKeyboard(s.item, s.vote, s.saved, !s.alert),
+});
+
+// the persistent button under the input field: the way back to the menu without typing
+export const HOME = '🏠 תפריט';
+export const homeKeyboard = () => new Keyboard().text(HOME).resized().persistent();
 
 export const MENU_TEXT = '🗞 <b>תפריט</b>\nסקירות נשלחות ב-08:00 וב-20:00, ומייל שבועי בשישי ב-09:00.';
 
@@ -85,12 +92,10 @@ export const menuKeyboard = () =>
 export function sourcesScreen(sources: Source[]): { text: string; keyboard: InlineKeyboard } {
   const kb = new InlineKeyboard();
   for (const s of sources) {
-    kb.text(`${s.enabled ? '✅' : '⛔'} ${s.name}`, `st:${s.id}`);
-    if (!s.builtin) kb.text('🗑', `sd:${s.id}`);
-    kb.row();
+    kb.text(`${s.enabled ? '✅' : '⛔'} ${s.name}`, `st:${s.id}`).row();
   }
   kb.text(BACK, 'm:home');
-  return { text: '📰 <b>מקורות</b>\nלחיצה מפעילה או מכבה מקור.\nמקור חדש: <code>/addsource https://…/feed</code>', keyboard: kb };
+  return { text: '📰 <b>מקורות</b>\nלחיצה מפעילה או מכבה מקור.', keyboard: kb };
 }
 
 export function mutesScreen(mutes: Mute[]): { text: string; keyboard: InlineKeyboard } {
@@ -98,7 +103,7 @@ export function mutesScreen(mutes: Mute[]): { text: string; keyboard: InlineKeyb
   for (const m of mutes) kb.text(`❌ ${m.word}${m.until ? ` (עד ${m.until.slice(8, 10)}.${m.until.slice(5, 7)})` : ''}`, `um:${m.id}`).row();
   kb.text(BACK, 'm:home');
   const text = mutes.length ? '🔇 <b>השתקות</b>\nלחיצה מבטלת השתקה.' : '🔇 <b>השתקות</b>\nאין נושאים מושתקים.';
-  return { text: `${text}\nלהשתיק מילה: <code>/mute מילה</code>`, keyboard: kb };
+  return { text: `${text}\nלהשתקת נושא: פותחים כתבה מהסקירה ולוחצים 🔇.`, keyboard: kb };
 }
 
 export function savedScreen(items: DigestItem[]): { text: string; keyboard: InlineKeyboard } {

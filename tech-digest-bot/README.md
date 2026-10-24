@@ -24,17 +24,20 @@ Private Telegram bot: reads ~20 leading tech sources (AI, dev tools, gadgets, in
 
 ## Using it
 
-`/start` and `/menu` open the menu: send a digest now, saved items, sources, muted topics, weekly email now, clear screen. The same actions exist as commands: `/now`, `/saved`, `/sources`, `/muted`, `/weekly`, `/clear`, plus `/addsource <feed url>` and `/mute <word>`.
+Buttons only. `/start` (Telegram's Start button) installs a persistent "🏠 תפריט" button under the input field and removes the typed-command menu. Anything typed is deleted and answered with the menu.
 
+- The menu has: send a digest now, saved items, sources (on/off), muted topics, weekly email now, clear screen.
 - Each digest has number buttons. A number opens that story's card:
   - 👍 / 👎: feedback that steers later picks.
   - 📌: save for later. Saved stories also go into the weekly email.
   - 🔍: a longer Hebrew summary, made once and then cached.
   - 🔇: mute one of the story's topics, for good or for a week.
   - ⬅️ חזרה: closes the card.
+- Only one card is open at a time, so tapping again replaces the card instead of stacking copies.
+- 🚨 alerts carry the same buttons on the alert message itself.
 - Screens opened from the menu replace the same message, and ⬅️ חזרה goes back to the menu.
 - 🧹 Clear screen deletes the bot's and your messages from the chat. Nothing in the database is touched. Telegram only lets a bot delete messages from the last 48 hours, so older ones stay, and the bot says how many.
-- A source that fails 3 runs in a row sends one warning. You can switch it off in `/sources`.
+- A source that fails 3 runs in a row sends one warning. You can switch it off in the sources screen.
 
 ## How it works
 
@@ -45,7 +48,7 @@ Private Telegram bot: reads ~20 leading tech sources (AI, dev tools, gadgets, in
   2. Drops anything older than 48 hours or muted.
   3. Groups the same story across sources by title similarity, and drops stories already sent in the last 48 hours.
   4. Sends the top 80 to Gemini in **one call**. Gemini picks 10–12, merges the duplicates the code missed, and writes the Hebrew title and summary, category, tags and importance. Your 👍/👎 history goes into the prompt.
-- **Gemini models** (`CONFIG.models` in `src/config.ts`): `gemini-3.8-flash`, then `gemini-3.6-flash`, then `gemini-2.5-flash`. The next model is tried on quota errors or downtime. Gemini 3.x Pro has no free tier, so it is not used. Calls per day: 2 digests, at most 2 alerts, 1 per 🔍 tap, and 1 more on Fridays.
+- **Gemini models** (`CONFIG.models` in `src/config.ts`): `gemini-3.8-flash`, then `gemini-3.6-flash`, then `gemini-3.5-flash-lite`. A model that answers 503 ("high demand", common on free keys) is retried once after 2 seconds; on other quota errors or downtime the next model is tried. Gemini 3.x Pro has no free tier, and 2.5 Flash is closed to new keys, so neither is used. Calls per day: 2 digests, at most 2 alerts, 1 per 🔍 tap, and 1 more on Fridays.
 - **TLDR**: the RSS feed has one entry per issue, so each new issue page is fetched once and split into stories. Sponsor blocks are skipped.
 
 Sources and thresholds: `src/sources.ts` and `src/config.ts`. Anthropic has no RSS feed, so it is not included. Its news still arrives through TLDR, Hacker News and the tech sites.

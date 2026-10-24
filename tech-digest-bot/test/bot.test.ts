@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBot, isOwner } from '../src/bot';
-import { activeMutes, allSources, isSaved, logMessage, saveDigest, seedSources, vote, type DigestItem } from '../src/db';
+import { activeMutes, allSources, isSaved, kvGet, logMessage, saveDigest, vote, type DigestItem } from '../src/db';
 import { e, geminiAnswer, mockFetch, resetDb, telegram } from './helpers';
 
 const NOW = () => new Date('2026-10-24T10:00:00Z');
@@ -45,16 +45,31 @@ describe('owner only', () => {
     expect(isOwner(undefined, '1')).toBe(false);
   });
   it('ignores everyone else', async () => {
-    await send(command(2, '/menu'));
+    await send(command(2, '/start'));
     expect(telegram(f, 'sendMessage')).toHaveLength(0);
   });
 });
 
 describe('menu', () => {
-  it('/start installs the commands and shows the menu', async () => {
+  it('/start removes typed commands, installs the 🏠 button once and shows the menu', async () => {
     await send(command(1, '/start'));
-    expect(telegram(f, 'setMyCommands')).toHaveLength(1);
-    expect(buttons(lastOf('sendMessage'))).toEqual(['m:now', 'm:saved', 'm:src', 'm:mut', 'm:weekly', 'm:clear']);
+    expect(telegram(f, 'deleteMyCommands')).toHaveLength(1);
+    const [home, menu] = telegram(f, 'sendMessage');
+    expect(home.reply_markup).toMatchObject({ keyboard: [[{ text: '🏠 תפריט' }]], is_persistent: true });
+    expect(buttons(menu)).toEqual(['m:now', 'm:saved', 'm:src', 'm:mut', 'm:weekly', 'm:clear']);
+    const menuId = Number(await kvGet(env.DB, 'menu_msg'));
+    // a second /start: no second welcome, the /start itself and the old menu are deleted
+    await send(command(1, '/start', 5));
+    expect(telegram(f, 'sendMessage')).toHaveLength(3);
+    expect(telegram(f, 'deleteMessage').map((m) => m.message_id)).toEqual([1, 5, menuId]);
+  });
+
+  it('anything typed (including the 🏠 button) is deleted and answered with the menu', async () => {
+    for (const text of ['🏠 תפריט', '/sources', 'hello']) {
+      await send({ update_id: 1, message: { message_id: 77, date: 0, chat, from: user(1), text } });
+      expect(telegram(f, 'deleteMessage').map((m) => m.message_id)).toContain(77);
+      expect(buttons(lastOf('sendMessage'))).toContain('m:now');
+    }
   });
 
   it('sub-screens edit the same message and lead back to the menu', async () => {
@@ -90,8 +105,8 @@ describe('item card', () => {
   it('saves and lists the item, and removes it from the saved screen', async () => {
     await send(tap(`sv:${item.id}`));
     expect(await isSaved(env.DB, item.id)).toBe(true);
-    await send(command(1, '/saved'));
-    expect(lastOf('sendMessage').text).toContain('OpenAI משיקה את GPT-6');
+    await send(tap('m:saved'));
+    expect(lastOf('editMessageText').text).toContain('OpenAI משיקה את GPT-6');
     await send(tap(`us:${item.id}`));
     expect(await isSaved(env.DB, item.id)).toBe(false);
   });
@@ -106,6 +121,21 @@ describe('item card', () => {
     expect(m.word).toBe('gpt-6');
     expect(m.until!.slice(0, 10)).toBe('2026-10-31');
     expect(buttons(lastOf('editMessageText'))).toContain(`sv:${item.id}`);
+  });
+
+  it('repeated taps keep a single card open', async () => {
+    await send(tap(`it:${item.id}`));
+    const first = Number(await kvGet(env.DB, 'open_card'));
+    await send(tap(`it:${item.id}`));
+    expect(telegram(f, 'deleteMessage').map((m) => m.message_id)).toEqual([first]);
+    expect(Number(await kvGet(env.DB, 'open_card'))).not.toBe(first);
+    expect(telegram(f, 'answerCallbackQuery').map((a) => a.text)).toEqual(['פותח…', 'פותח…']);
+  });
+
+  it('alerts carry the action buttons themselves, without a close button', async () => {
+    const [alert] = await saveDigest(env.DB, 'alert', [{ ...item, titleHe: 'התראה' }], NOW().toISOString());
+    await send(tap(`v:${alert.id}:1`));
+    expect(buttons(lastOf('editMessageReplyMarkup'))).toEqual([`v:${alert.id}:1`, `v:${alert.id}:-1`, `sv:${alert.id}`, `ex:${alert.id}`, `mu:${alert.id}`]);
   });
 
   it('back on a card deletes it', async () => {
@@ -131,30 +161,12 @@ describe('item card', () => {
 });
 
 describe('sources', () => {
-  it('toggles a built-in source; only custom sources can be deleted', async () => {
-    await send(command(1, '/sources'));
-    const [s] = await allSources(env.DB);
-    expect(buttons(lastOf('sendMessage'))).not.toContain(`sd:${s.id}`);
-    await send(tap(`st:${s.id}`));
+  it('toggles a source on and off from the sources screen', async () => {
+    await send(tap('m:src'));
+    const [first] = await allSources(env.DB);
+    expect(buttons(lastOf('editMessageText'))).toContain(`st:${first.id}`);
+    await send(tap(`st:${first.id}`));
     expect((await allSources(env.DB))[0].enabled).toBe(false);
-  });
-
-  it('/addsource validates the feed before saving', async () => {
-    f = mockFetch((u) =>
-      u === 'https://blog.test/feed'
-        ? new Response('<rss><channel><title>My Blog</title><item><title>Hi</title><link>https://blog.test/1</link></item></channel></rss>')
-        : u === 'https://blog.test/page' ? new Response('<html>no feed</html>') : undefined,
-    );
-    await send(command(1, '/addsource https://blog.test/page'));
-    expect(lastOf('sendMessage').text).toContain('לא מצאתי');
-    await send(command(1, '/addsource https://blog.test/feed'));
-    expect(lastOf('sendMessage').text).toBe('נוסף מקור: My Blog');
-    await seedSources(env.DB);
-    const custom = (await allSources(env.DB)).find((s) => s.name === 'My Blog')!;
-    await send(command(1, '/sources'));
-    expect(buttons(lastOf('sendMessage'))).toContain(`sd:${custom.id}`);
-    await send(tap(`sd:${custom.id}`));
-    expect((await allSources(env.DB)).some((s) => s.name === 'My Blog')).toBe(false);
   });
 });
 
@@ -163,9 +175,9 @@ describe('/clear', () => {
     const recent = new Date(NOW().getTime() - 3_600_000).toISOString();
     for (let id = 1000; id < 1150; id++) await logMessage(env.DB, id, recent);
     await logMessage(env.DB, 7, '2026-10-20T00:00:00.000Z');
-    await send(command(1, '/clear', 2000));
+    await send(tap('m:clear'));
     const batches = telegram(f, 'deleteMessages').map((b) => b.message_ids.length);
-    expect(batches).toEqual([100, 51]); // 150 logged + the /clear message itself
+    expect(batches).toEqual([100, 50]);
     const menu = lastOf('sendMessage');
     expect(menu.text).toContain('1 הודעות בנות יותר מ-48 שעות נשארו');
     expect(buttons(menu)).toContain('m:clear');
@@ -176,9 +188,24 @@ describe('/clear', () => {
   });
 });
 
-describe('/now', () => {
+describe('gemini errors', () => {
+  it('report every model\'s reason, not only the last fallback', async () => {
+    f = mockFetch((u) => {
+      if (u === 'https://a.test/1') return new Response('');
+      if (u.includes('gemini-3.5-flash-lite')) return Response.json({ error: { code: 404, status: 'NOT_FOUND', message: 'model gone' } }, { status: 404 });
+      if (u.includes('generativelanguage')) return Response.json({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded, limit: 0' } }, { status: 429 });
+    });
+    await send(tap(`ex:${item.id}`));
+    const text = lastOf('sendMessage').text as string;
+    expect(text).toContain('gemini-3.8-flash: HTTP 429 RESOURCE_EXHAUSTED Quota exceeded, limit: 0');
+    expect(text).toContain('gemini-3.6-flash: HTTP 429');
+    expect(text).toContain('gemini-3.5-flash-lite: HTTP 404 NOT_FOUND model gone');
+  });
+});
+
+describe('send now', () => {
   it('says so when there is nothing new', async () => {
-    await send(command(1, '/now'));
+    await send(tap('m:now'));
     expect(lastOf('sendMessage').text).toBe('אין חדשות חדשות מאז הסקירה הקודמת');
   });
 });

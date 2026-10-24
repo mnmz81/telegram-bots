@@ -69,6 +69,46 @@ describe('buildDigest', () => {
     expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.8-flash', 'gemini-3.6-flash']);
   });
 
+  it('retries a model once on 503 before falling back', async () => {
+    let first = true;
+    fetchMock = mockFetch((u) => {
+      if (!u.includes('generativelanguage')) return;
+      if (u.includes('gemini-3.8-flash') && first) {
+        first = false;
+        return new Response('high demand', { status: 503 });
+      }
+      return geminiAnswer(picksFor([1]));
+    });
+    expect((await buildDigest(e, NOW, 'scheduled'))!.usedAi).toBe(true);
+    expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.8-flash', 'gemini-3.8-flash']);
+  });
+
+  it('scheduled digests retry a busy model longer than a tap does', async () => {
+    const tries = async (kind: 'scheduled' | 'now') => {
+      await kvSet(env.DB, 'last_digest', '2026-10-23T00:00:00.000Z');
+      await env.DB.prepare('DELETE FROM digest_items').run();
+      fetchMock = mockFetch((u) => (u.includes('generativelanguage') ? new Response('high demand', { status: 503 }) : undefined));
+      await buildDigest(e, NOW, kind);
+      return callsTo(fetchMock, 'gemini-3.8-flash').length;
+    };
+    expect(await tries('scheduled')).toBe(4);
+    expect(await tries('now')).toBe(2);
+  });
+
+  it('a send-now tap stops retrying near the time limit and still sends English titles', async () => {
+    let t = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => t);
+    fetchMock = mockFetch((u) => {
+      if (!u.includes('generativelanguage')) return;
+      t += 30_000; // this call took past the tap budget
+      return new Response('high demand', { status: 503 });
+    });
+    const d = await buildDigest(e, NOW, 'now');
+    expect(callsTo(fetchMock, 'generativelanguage')).toHaveLength(1);
+    expect(d!.usedAi).toBe(false);
+    vi.restoreAllMocks();
+  });
+
   it('sends English titles when every model fails, without crashing', async () => {
     fetchMock = mockFetch((u) => (u.includes('generativelanguage') ? new Response('down', { status: 503 }) : undefined));
     const d = await buildDigest(e, NOW, 'scheduled');

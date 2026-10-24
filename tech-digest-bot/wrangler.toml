@@ -6,7 +6,7 @@ compatibility_date = "2026-10-01"
 binding = "DB"
 database_name = "tech-digest-bot"
 # paste the id printed by `npx wrangler d1 create tech-digest-bot`
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "e5449775-41b4-49a5-a124-e416f0c23acb"
 migrations_dir = "migrations"
 
 [triggers]

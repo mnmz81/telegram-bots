@@ -5,7 +5,7 @@ import { hoursAgo, israelNow } from './dates';
 import { activeMutes, alertsSince, isMuted, recentItems, saveDigest, sentTitles, type NewDigestItem } from './db';
 import { toCandidates, type Candidate } from './digest';
 import { askJson } from './gemini';
-import { alertKeyboard, alertText, sourcesLabel } from './messages';
+import { alertText, cardKeyboard, sourcesLabel } from './messages';
 import { CATEGORIES, type Category } from './sources';
 
 const ALERT_SCHEMA = {
@@ -57,6 +57,7 @@ export async function runBreaking(env: Env, api: Api, now: Date): Promise<void> 
         c.lead.snippet ? `Snippet: ${c.lead.snippet}` : '',
       ].join('\n'),
       ALERT_SCHEMA,
+      'scheduled',
     );
   } catch (err) {
     console.error('gemini alert failed', err);
@@ -77,6 +78,6 @@ export async function runBreaking(env: Env, api: Api, now: Date): Promise<void> 
   await api.sendMessage(env.OWNER_ID, alertText(saved), {
     parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },
-    reply_markup: alertKeyboard(saved),
+    reply_markup: cardKeyboard(saved, 0, false, false),
   });
 }

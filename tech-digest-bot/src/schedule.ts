@@ -28,7 +28,7 @@ export async function runScheduled(env: Env, api: Api, now: Date): Promise<void>
     await runDigest(env, api, now, 'scheduled').catch((err) => warn(env, api, 'הסקירה', err));
   }
   if (weekday === CONFIG.weeklyWeekday && hour === CONFIG.weeklyHour) {
-    await sendWeekly(env, now).catch((err) => warn(env, api, 'המייל השבועי', err));
+    await sendWeekly(env, now, 'scheduled').catch((err) => warn(env, api, 'המייל השבועי', err));
     await pruneItems(env.DB, hoursAgo(now, CONFIG.retentionDays * 24));
     await pruneMessages(env.DB, hoursAgo(now, CONFIG.retentionDays * 24));
   }

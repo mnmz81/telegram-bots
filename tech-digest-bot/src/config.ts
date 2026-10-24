@@ -19,8 +19,15 @@ export const CONFIG = {
   feedFailAlertAfter: 3,
   retentionDays: 30,
   // free tier only: the key must come from an AI Studio project WITHOUT billing, so it can never be charged.
-  // Best first; the next one is tried on 429 / 404 / 5xx / unparsable output. 3.x Pro has no free tier.
-  models: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'],
+  // Best first; the next one is tried on 429 / 404 / 5xx / unparsable output. 3.x Pro has no free tier,
+  // and 2.5 Flash answers 404 'no longer available to new users'. Flash-Lite is the least loaded fallback.
+  models: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'],
+  // free-tier keys get 503 'high demand' in spikes: a model is retried after each of these waits before the next one.
+  // tap = any button (🔍, send digest now, weekly email now), scheduled = cron runs (up to 15 minutes each)
+  geminiRetryMs: { tap: [10000], scheduled: [5000, 15000, 30000] } as Record<'tap' | 'scheduled', number[]>,
+  // a tap's background work is killed ~30s after the reply (Cloudflare waitUntil): past this, no new wait or model is
+  // started, so a digest still goes out (English titles) instead of nothing
+  tapBudgetMs: 22000,
   expandChars: 8000,
   // Telegram refuses to delete messages older than this
   clearWindowHours: 48,

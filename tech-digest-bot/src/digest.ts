@@ -141,7 +141,8 @@ export async function buildDigest(env: Env, now: Date, kind: 'scheduled' | 'now'
   let picks: NewDigestItem[];
   let usedAi = true;
   try {
-    picks = validatePicks(await askJson(env, digestPrompt(candidates, taste, mutes.map((m) => m.word)), DIGEST_SCHEMA), candidates);
+    const prompt = digestPrompt(candidates, taste, mutes.map((m) => m.word));
+    picks = validatePicks(await askJson(env, prompt, DIGEST_SCHEMA, kind === 'scheduled' ? 'scheduled' : 'tap'), candidates);
     if (!picks.length) throw new Error('no usable picks');
   } catch (err) {
     console.error('gemini digest failed', err);
