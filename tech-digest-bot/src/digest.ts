@@ -58,7 +58,8 @@ export function digestPrompt(candidates: Candidate[], taste: { liked: string[]; 
   );
   return [
     'You edit a personal tech-news digest for an Israeli software developer.',
-    'Interests: new features and hot industry news, AI and language models, software development and developer tools, gadgets and consumer products.',
+    'Interests: new features and hot industry news, AI and language models, software development and developer tools, gadgets and consumer products,',
+    'cybersecurity (major breaches, vulnerabilities), IT and cloud, hardware and chips, product and UI design.',
     `Pick the ${CONFIG.digestMax - 2}-${CONFIG.digestMax} most important and interesting stories below (fewer if there are not enough good ones).`,
     'Prefer: real launches, new features, major releases, big industry moves, stories several sources cover. Skip: opinion pieces, listicles, deals and discounts, sponsored content, minor updates.',
     'If several candidates are the same story, pick one and put the others\' ids in "merge".',

@@ -1,6 +1,6 @@
 # tech-digest-bot
 
-Private Telegram bot: reads ~20 leading tech sources (AI, dev tools, gadgets, industry, TLDR newsletters, Hacker News), removes duplicates and noise, and sends a Hebrew digest of 10–12 stories at 08:00 and 20:00 Israel time, every day. A weekly summary goes out by email on Friday at 09:00. Big stories get a 🚨 alert in between, at most 2 a day and never at night.
+Private Telegram bot: reads 25 tech sources (AI, dev tools, gadgets, security, IT, design, industry, eight TLDR newsletters, Hacker News), removes duplicates and noise, and sends a Hebrew digest of 10–12 stories at 08:00 and 20:00 Israel time, every day. A weekly summary goes out by email on Friday at 09:00. Big stories get a 🚨 alert in between, at most 2 a day and never at night.
 
 ## Setup (once)
 
@@ -49,7 +49,7 @@ Buttons only. `/start` (Telegram's Start button) installs a persistent "🏠 ת�
   3. Groups the same story across sources by title similarity, and drops stories already sent in the last 48 hours.
   4. Sends the top 80 to Gemini in **one call**. Gemini picks 10–12, merges the duplicates the code missed, and writes the Hebrew title and summary, category, tags and importance. Your 👍/👎 history goes into the prompt.
 - **Gemini models** (`CONFIG.models` in `src/config.ts`): `gemini-3.8-flash`, then `gemini-3.6-flash`, then `gemini-3.5-flash-lite`. A model that answers 503 ("high demand", common on free keys) is retried once after 2 seconds; on other quota errors or downtime the next model is tried. Gemini 3.x Pro has no free tier, and 2.5 Flash is closed to new keys, so neither is used. Calls per day: 2 digests, at most 2 alerts, 1 per 🔍 tap, and 1 more on Fridays.
-- **TLDR**: the RSS feed has one entry per issue, so each new issue page is fetched once and split into stories. Sponsor blocks are skipped.
+- **TLDR** (Tech, AI, Web Dev, Dev, InfoSec, Hardware, Design, IT): the RSS feed has one entry per issue, so each new issue page is fetched once and split into stories. Sponsor blocks are skipped.
 
 Sources and thresholds: `src/sources.ts` and `src/config.ts`. Anthropic has no RSS feed, so it is not included. Its news still arrives through TLDR, Hacker News and the tech sites.
 
