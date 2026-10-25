@@ -6,7 +6,7 @@ import {
   activeMutes, isMuted, kvGet, kvSet, recentItems, saveDigest, sentTitles, tasteProfile,
   type DigestItem, type ItemRow, type NewDigestItem,
 } from './db';
-import { askJson } from './gemini';
+import { askJson, GeminiError } from './gemini';
 import { digestKeyboard, displayOrder, formatDigest, sourcesLabel } from './messages';
 import { CATEGORIES, type Category } from './sources';
 
@@ -107,24 +107,10 @@ export function validatePicks(raw: { picks?: Pick[] } | null, candidates: Candid
   return out;
 }
 
-// Gemini unavailable: the best-scored stories with their original English titles
-export const fallbackPicks = (candidates: Candidate[]): NewDigestItem[] =>
-  candidates.slice(0, CONFIG.digestMax).map((c) => ({
-    url: c.lead.url,
-    title: c.lead.title,
-    snippet: c.lead.snippet,
-    sources: sourcesLabel(c.sources),
-    coverage: c.coverage,
-    titleHe: c.lead.title,
-    summaryHe: c.lead.snippet.slice(0, 200),
-    category: c.category,
-    tags: [],
-    importance: 3,
-  }));
+export type Digest = { items: DigestItem[] };
 
-export type Digest = { items: DigestItem[]; usedAi: boolean };
-
-// items fetched since the previous digest, muted ones dropped, stories already sent dropped, one Gemini call
+// items fetched since the previous digest, muted ones dropped, stories already sent dropped, one Gemini call.
+// Gemini failing throws GeminiError and leaves last_digest alone, so the stories wait for the next try (never sent in English)
 export async function buildDigest(env: Env, now: Date, kind: 'scheduled' | 'now'): Promise<Digest | null> {
   const at = now.toISOString();
   const since = (await kvGet(env.DB, 'last_digest')) ?? hoursAgo(now, 24);
@@ -134,28 +120,23 @@ export async function buildDigest(env: Env, now: Date, kind: 'scheduled' | 'now'
     sentTitles(env.DB, hoursAgo(now, 48)),
     tasteProfile(env.DB),
   ]);
-  await kvSet(env.DB, 'last_digest', at);
   const kept = rows.filter((r) => !isMuted(`${r.title} ${r.snippet}`, mutes));
   const candidates = toCandidates(cluster(kept, seen)).slice(0, CONFIG.maxCandidates);
-  if (!candidates.length) return null;
-
-  let picks: NewDigestItem[];
-  let usedAi = true;
-  try {
-    const prompt = digestPrompt(candidates, taste, mutes.map((m) => m.word));
-    picks = validatePicks(await askJson(env, prompt, DIGEST_SCHEMA, kind === 'scheduled' ? 'scheduled' : 'tap'), candidates);
-    if (!picks.length) throw new Error('no usable picks');
-  } catch (err) {
-    console.error('gemini digest failed', err);
-    picks = fallbackPicks(candidates);
-    usedAi = false;
+  if (!candidates.length) {
+    await kvSet(env.DB, 'last_digest', at);
+    return null;
   }
-  return { items: await saveDigest(env.DB, kind, displayOrder(picks), at), usedAi };
+
+  const prompt = digestPrompt(candidates, taste, mutes.map((m) => m.word));
+  const picks = validatePicks(await askJson(env, prompt, DIGEST_SCHEMA, kind === 'scheduled' ? 'scheduled' : 'tap'), candidates);
+  if (!picks.length) throw new GeminiError('no usable picks');
+  await kvSet(env.DB, 'last_digest', at);
+  return { items: await saveDigest(env.DB, kind, displayOrder(picks), at) };
 }
 
-export function digestHeader(now: Date, kind: 'scheduled' | 'now', usedAi: boolean): string {
+export function digestHeader(now: Date, kind: 'scheduled' | 'now'): string {
   const title = kind === 'now' ? 'סקירה' : israelNow(now).hour < 15 ? 'סקירת בוקר' : 'סקירת ערב';
-  return `🗞 <b>${title} · ${shortDate(now)}</b>${usedAi ? '' : '\n<i>Gemini לא זמין כרגע, הכותרות במקור</i>'}`;
+  return `🗞 <b>${title} · ${shortDate(now)}</b>`;
 }
 
 export async function sendDigest(api: Api, env: Env, digest: Digest, header: string): Promise<void> {
@@ -173,6 +154,6 @@ export async function sendDigest(api: Api, env: Env, digest: Digest, header: str
 export async function runDigest(env: Env, api: Api, now: Date, kind: 'scheduled' | 'now'): Promise<boolean> {
   const digest = await buildDigest(env, now, kind);
   if (!digest) return false;
-  await sendDigest(api, env, digest, digestHeader(now, kind, digest.usedAi));
+  await sendDigest(api, env, digest, digestHeader(now, kind));
   return true;
 }

@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Api } from 'grammy';
-import { addMute, insertItems, kvSet, seedSources, allSources } from '../src/db';
+import { addMute, insertItems, kvGet, kvSet, seedSources, allSources } from '../src/db';
 import { buildDigest, runDigest, toCandidates, validatePicks } from '../src/digest';
 import { formatDigest } from '../src/messages';
 import { e, geminiAnswer, mockFetch, resetDb, telegram, callsTo } from './helpers';
@@ -45,7 +45,7 @@ describe('candidates', () => {
       return geminiAnswer(picksFor([1, 2]));
     });
     const d = await buildDigest(e, NOW, 'scheduled');
-    expect(d!.usedAi).toBe(true);
+    expect(d!.items).toHaveLength(2);
     // display order: ai before products, numbers follow it
     expect(d!.items.map((i) => [i.pos, i.category, i.sources])).toEqual([[0, 'ai', 'The Verge'], [1, 'products', 'The Verge +1']]);
   });
@@ -64,7 +64,6 @@ describe('buildDigest', () => {
       if (u.includes('gemini-3.6-flash')) return geminiAnswer(picksFor([1, 2, 3]));
     });
     const d = await buildDigest(e, NOW, 'scheduled');
-    expect(d!.usedAi).toBe(true);
     expect(d!.items).toHaveLength(3);
     expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.8-flash', 'gemini-3.6-flash']);
   });
@@ -79,7 +78,7 @@ describe('buildDigest', () => {
       }
       return geminiAnswer(picksFor([1]));
     });
-    expect((await buildDigest(e, NOW, 'scheduled'))!.usedAi).toBe(true);
+    expect((await buildDigest(e, NOW, 'scheduled'))!.items).toHaveLength(1);
     expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.8-flash', 'gemini-3.8-flash']);
   });
 
@@ -88,14 +87,14 @@ describe('buildDigest', () => {
       await kvSet(env.DB, 'last_digest', '2026-10-23T00:00:00.000Z');
       await env.DB.prepare('DELETE FROM digest_items').run();
       fetchMock = mockFetch((u) => (u.includes('generativelanguage') ? new Response('high demand', { status: 503 }) : undefined));
-      await buildDigest(e, NOW, kind);
+      await buildDigest(e, NOW, kind).catch(() => {});
       return callsTo(fetchMock, 'gemini-3.8-flash').length;
     };
     expect(await tries('scheduled')).toBe(4);
     expect(await tries('now')).toBe(2);
   });
 
-  it('a send-now tap stops retrying near the time limit and still sends English titles', async () => {
+  it('a send-now tap stops retrying near the time limit', async () => {
     let t = 0;
     vi.spyOn(Date, 'now').mockImplementation(() => t);
     fetchMock = mockFetch((u) => {
@@ -103,27 +102,26 @@ describe('buildDigest', () => {
       t += 30_000; // this call took past the tap budget
       return new Response('high demand', { status: 503 });
     });
-    const d = await buildDigest(e, NOW, 'now');
+    await expect(buildDigest(e, NOW, 'now')).rejects.toThrow('out of time');
     expect(callsTo(fetchMock, 'generativelanguage')).toHaveLength(1);
-    expect(d!.usedAi).toBe(false);
     vi.restoreAllMocks();
   });
 
-  it('sends English titles when every model fails, without crashing', async () => {
+  it('never saves English titles when every model fails, and keeps the stories for the next try', async () => {
     fetchMock = mockFetch((u) => (u.includes('generativelanguage') ? new Response('down', { status: 503 }) : undefined));
-    const d = await buildDigest(e, NOW, 'scheduled');
-    expect(d!.usedAi).toBe(false);
-    expect(d!.items.map((i) => i.titleHe)).toContain('OpenAI releases GPT-6 model');
+    await expect(buildDigest(e, NOW, 'scheduled')).rejects.toThrow('HTTP 503');
+    expect(await env.DB.prepare('SELECT count(*) n FROM digest_items').first('n')).toBe(0);
+    expect(await kvGet(env.DB, 'last_digest')).toBe('2026-10-23T00:00:00.000Z');
   });
 
-  it('falls back on unparsable JSON', async () => {
+  it('fails on unparsable JSON', async () => {
     mockFetch((u) => (u.includes('generativelanguage') ? geminiAnswer('not json {') : undefined));
-    expect((await buildDigest(e, NOW, 'scheduled'))!.usedAi).toBe(false);
+    await expect(buildDigest(e, NOW, 'scheduled')).rejects.toThrow('gemini-3.5-flash-lite');
   });
 
   it('stops at a bad key instead of trying every model', async () => {
     fetchMock = mockFetch((u) => (u.includes('generativelanguage') ? new Response('bad key', { status: 403 }) : undefined));
-    await buildDigest(e, NOW, 'scheduled');
+    await expect(buildDigest(e, NOW, 'scheduled')).rejects.toThrow('HTTP 403');
     expect(callsTo(fetchMock, 'generativelanguage')).toHaveLength(1);
   });
 

@@ -37,6 +37,31 @@ describe('runScheduled', () => {
     expect(telegram(f, 'sendMessage')[0].text).toContain('סקירת בוקר');
   });
 
+  it('retries a digest Gemini failed on the next hours instead of sending English, then warns', async () => {
+    let up = false;
+    const f = mockFetch((u) => (u.includes('generativelanguage') && !up ? new Response('quota', { status: 429 }) : undefined), gemini);
+    await kvSet(env.DB, 'last_digest', '2026-12-04T00:00:00.000Z');
+    const hour = (h: number) => runScheduled(e, api(), new Date(Date.UTC(2026, 11, 3, h - 2))); // Thursday, Israel = UTC+2
+    await hour(8);
+    await hour(9);
+    expect(telegram(f, 'sendMessage')).toHaveLength(0);
+    expect(await kvGet(env.DB, 'digest_failed')).toBe('2');
+    up = true;
+    await hour(10);
+    expect(telegram(f, 'sendMessage')[0].text).toContain('סקירת בוקר');
+    expect(await kvGet(env.DB, 'digest_failed')).toBe('0');
+
+    up = false;
+    await kvSet(env.DB, 'last_digest', '2026-12-03T00:00:00.000Z');
+    await env.DB.prepare('DELETE FROM digest_items').run();
+    for (const h of [20, 21, 22, 23]) await hour(h);
+    const sent = telegram(f, 'sendMessage');
+    expect(sent).toHaveLength(2);
+    expect(sent[1].text).toContain('הסקירה נכשל');
+    expect(sent[1].text).toContain('HTTP 429');
+    expect(await kvGet(env.DB, 'digest_failed')).toBe('0');
+  });
+
   it('emails the weekly summary on Friday 09:00 Israel time', async () => {
     const f = mockFetch(gemini, (u) => (u.includes('resend.com') ? Response.json({ id: 'x' }) : undefined));
     await runScheduled(e, api(), new Date('2026-12-04T07:00:00Z'));
@@ -113,6 +138,17 @@ describe('runBreaking', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0].text).toContain('🚨 <b>אפל חושפת אייפון מתקפל</b>');
     expect(sent[0].text).toContain('The Verge +2');
+  });
+
+  it('sends no English alert when Gemini fails, and alerts on the next run', async () => {
+    let up = false;
+    const f = mockFetch((u) => (u.includes('generativelanguage') && !up ? new Response('down', { status: 503 }) : undefined), gemini);
+    await hotStory();
+    await runBreaking(e, api(), NOW);
+    expect(telegram(f, 'sendMessage')).toHaveLength(0);
+    up = true;
+    await runBreaking(e, api(), new Date(NOW.getTime() + 3_600_000));
+    expect(telegram(f, 'sendMessage')[0].text).toContain('אפל חושפת אייפון מתקפל');
   });
 
   it('stays quiet at night', async () => {

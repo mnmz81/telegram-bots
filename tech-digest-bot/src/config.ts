@@ -28,6 +28,9 @@ export const CONFIG = {
   // a tap's background work is killed ~30s after the reply (Cloudflare waitUntil): past this, no new wait or model is
   // started, so a digest still goes out (English titles) instead of nothing
   tapBudgetMs: 22000,
+  // a scheduled digest Gemini could not write is retried on the next hourly runs, up to this many tries in all:
+  // the free-tier daily quota resets at midnight Pacific (09:00/10:00 Israel), after the 08:00 digest
+  digestAttempts: 4,
   expandChars: 8000,
   // Telegram refuses to delete messages older than this
   clearWindowHours: 48,

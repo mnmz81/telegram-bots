@@ -12,3 +12,7 @@ migrations_dir = "migrations"
 [triggers]
 # :50 fetches a slice of the feeds + breaking check; :00 sends digests / the weekly email when the Israel hour matches
 crons = ["50 * * * *", "0 * * * *"]
+
+# keeps console.error output (e.g. why Gemini failed) in the dashboard's Workers Logs, not only in a live `wrangler tail`
+[observability]
+enabled = true

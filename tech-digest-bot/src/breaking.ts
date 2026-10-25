@@ -60,7 +60,9 @@ export async function runBreaking(env: Env, api: Api, now: Date): Promise<void> 
       'scheduled',
     );
   } catch (err) {
+    // no English alert: the story is still unsent, so the next :50 run tries again
     console.error('gemini alert failed', err);
+    return;
   }
   const item: NewDigestItem = {
     url: c.lead.url,

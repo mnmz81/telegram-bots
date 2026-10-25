@@ -3,8 +3,9 @@ import { runBreaking } from './breaking';
 import { runFetch } from './collect';
 import { CONFIG, type Env } from './config';
 import { hoursAgo, israelNow } from './dates';
-import { pruneItems, pruneMessages } from './db';
+import { kvGet, kvSet, pruneItems, pruneMessages } from './db';
 import { runDigest } from './digest';
+import { GeminiError } from './gemini';
 import { esc } from './messages';
 import { sendWeekly } from './weekly';
 
@@ -21,11 +22,20 @@ export async function runCollect(env: Env, api: Api, now: Date): Promise<void> {
   await runBreaking(env, api, now).catch((err) => console.error('breaking check failed', err));
 }
 
-// :00 every hour: acts only on the digest hours and Friday morning (Israel time, so DST needs no cron change)
+// :00 every hour: acts only on the digest hours, a failed digest's retries and Friday morning (Israel time, so DST needs no cron change)
 export async function runScheduled(env: Env, api: Api, now: Date): Promise<void> {
   const { hour, weekday } = israelNow(now);
-  if ((CONFIG.digestHours as readonly number[]).includes(hour)) {
-    await runDigest(env, api, now, 'scheduled').catch((err) => warn(env, api, 'הסקירה', err));
+  const failed = Number((await kvGet(env.DB, 'digest_failed')) ?? 0);
+  if ((CONFIG.digestHours as readonly number[]).includes(hour) || failed) {
+    try {
+      await runDigest(env, api, now, 'scheduled');
+      if (failed) await kvSet(env.DB, 'digest_failed', '0');
+    } catch (err) {
+      // Gemini down: try again next hour instead of sending English titles; the owner hears only when every try failed
+      const retry = err instanceof GeminiError && failed + 1 < CONFIG.digestAttempts;
+      await kvSet(env.DB, 'digest_failed', retry ? String(failed + 1) : '0');
+      if (!retry) await warn(env, api, 'הסקירה', err);
+    }
   }
   if (weekday === CONFIG.weeklyWeekday && hour === CONFIG.weeklyHour) {
     await sendWeekly(env, now, 'scheduled').catch((err) => warn(env, api, 'המייל השבועי', err));
