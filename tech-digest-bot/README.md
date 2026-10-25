@@ -61,6 +61,7 @@ npx tsc --noEmit
 npm run dev                         # wrangler dev with scheduled-trigger testing
 scripts/run-cron.sh collect         # in a second terminal: one fetch + breaking run against the local Worker
 scripts/run-cron.sh scheduled       # the :00 run (acts only at 08/20, Friday 09)
+scripts/gemini-check.sh             # asks for your Gemini key, tests each model: errors, quota hit, tokens, cut-off JSON
 ```
 
 Before the first `npm run dev`, apply the schema locally: `npx wrangler d1 migrations apply tech-digest-bot --local`.
