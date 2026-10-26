@@ -60,18 +60,18 @@ describe('buildDigest', () => {
 
   it('falls through to the next model on 429 and uses its answer', async () => {
     fetchMock = mockFetch((u) => {
-      if (u.includes('gemini-3.8-flash')) return new Response('quota', { status: 429 });
-      if (u.includes('gemini-3.6-flash')) return geminiAnswer(picksFor([1, 2, 3]));
+      if (u.includes('gemini-3.6-flash')) return new Response('quota', { status: 429 });
+      if (u.includes('gemini-3.5-flash-lite')) return geminiAnswer(picksFor([1, 2, 3]));
     });
     const d = await buildDigest(e, NOW, 'scheduled');
     expect(d!.items).toHaveLength(3);
-    expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.8-flash', 'gemini-3.6-flash']);
+    expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.6-flash', 'gemini-3.5-flash-lite']);
   });
 
   it('moves to a faster model when Cloudflare times out on a slow one (524)', async () => {
     fetchMock = mockFetch((u) => {
-      if (u.includes('gemini-3.8-flash')) return new Response('error code: 524', { status: 524 });
-      if (u.includes('gemini-3.6-flash')) return geminiAnswer(picksFor([1]));
+      if (u.includes('gemini-3.6-flash')) return new Response('error code: 524', { status: 524 });
+      if (u.includes('gemini-3.5-flash-lite')) return geminiAnswer(picksFor([1]));
     });
     expect((await buildDigest(e, NOW, 'scheduled'))!.items).toHaveLength(1);
   });
@@ -80,14 +80,14 @@ describe('buildDigest', () => {
     let first = true;
     fetchMock = mockFetch((u) => {
       if (!u.includes('generativelanguage')) return;
-      if (u.includes('gemini-3.8-flash') && first) {
+      if (u.includes('gemini-3.6-flash') && first) {
         first = false;
         return new Response('high demand', { status: 503 });
       }
       return geminiAnswer(picksFor([1]));
     });
     expect((await buildDigest(e, NOW, 'scheduled'))!.items).toHaveLength(1);
-    expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.8-flash', 'gemini-3.8-flash']);
+    expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.6-flash', 'gemini-3.6-flash']);
   });
 
   it('scheduled digests retry a busy model longer than a tap does', async () => {
@@ -96,7 +96,7 @@ describe('buildDigest', () => {
       await env.DB.prepare('DELETE FROM digest_items').run();
       fetchMock = mockFetch((u) => (u.includes('generativelanguage') ? new Response('high demand', { status: 503 }) : undefined));
       await buildDigest(e, NOW, kind).catch(() => {});
-      return callsTo(fetchMock, 'gemini-3.8-flash').length;
+      return callsTo(fetchMock, 'gemini-3.6-flash').length;
     };
     expect(await tries('scheduled')).toBe(4);
     expect(await tries('now')).toBe(2);

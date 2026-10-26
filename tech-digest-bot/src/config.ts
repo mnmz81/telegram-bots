@@ -20,8 +20,10 @@ export const CONFIG = {
   retentionDays: 30,
   // free tier only: the key must come from an AI Studio project WITHOUT billing, so it can never be charged.
   // Best first; the next one is tried on 429 / 404 / 5xx / unparsable output. 3.x Pro has no free tier,
-  // and 2.5 Flash answers 404 'no longer available to new users'. Flash-Lite is the least loaded fallback.
-  models: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'],
+  // and 2.5 Flash answers 404 'no longer available to new users'. Flash-Lite is the fastest, least loaded fallback.
+  // No 3.8 Flash: on 2026-10-26 it took 248s for a one-word ping and timed out on a digest (Cloudflare 524),
+  // with only 20 free requests a day; 3.6 Flash wrote a 25-story digest in 77s, Flash-Lite in 36s (scripts/gemini-check.sh).
+  models: ['gemini-3.6-flash', 'gemini-3.5-flash-lite'],
   // free-tier keys get 503 'high demand' in spikes: a model is retried after each of these waits before the next one.
   // tap = any button (🔍, send digest now, weekly email now), scheduled = cron runs (up to 15 minutes each)
   geminiRetryMs: { tap: [10000], scheduled: [5000, 15000, 30000] } as Record<'tap' | 'scheduled', number[]>,

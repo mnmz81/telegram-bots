@@ -197,8 +197,7 @@ describe('gemini errors', () => {
     });
     await send(tap(`ex:${item.id}`));
     const text = lastOf('sendMessage').text as string;
-    expect(text).toContain('gemini-3.8-flash: HTTP 429 RESOURCE_EXHAUSTED Quota exceeded, limit: 0');
-    expect(text).toContain('gemini-3.6-flash: HTTP 429');
+    expect(text).toContain('gemini-3.6-flash: HTTP 429 RESOURCE_EXHAUSTED Quota exceeded, limit: 0');
     expect(text).toContain('gemini-3.5-flash-lite: HTTP 404 NOT_FOUND model gone');
   });
 });
