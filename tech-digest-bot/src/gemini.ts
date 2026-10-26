@@ -2,8 +2,9 @@ import { CONFIG, type Env } from './config';
 
 export class GeminiError extends Error {}
 
-// statuses where another model may still work: quota, unknown model, server trouble
-const TRY_NEXT = new Set([404, 429, 500, 502, 503, 504]);
+// statuses where another model may still work: quota, unknown model, server trouble,
+// 524 = Cloudflare stopped waiting (~100s) for a model still thinking on a big prompt; a lighter model answers faster
+const TRY_NEXT = new Set([404, 429, 500, 502, 503, 504, 524]);
 
 // Google's own reason ('RESOURCE_EXHAUSTED Quota exceeded…'), short enough for a Telegram message
 async function reason(res: Response): Promise<string> {

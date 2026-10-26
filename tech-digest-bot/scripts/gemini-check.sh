@@ -2,7 +2,8 @@
 # Check each Gemini model the bot uses, with your own key, to see why a digest fell back.
 # Usage: GEMINI_API_KEY=... scripts/gemini-check.sh [model ...]
 #   no key in the environment: asks for it (hidden). No models given: the list in src/config.ts.
-# Per model, two requests: a tiny ping, then a digest-sized answer (25 Hebrew items as JSON).
+# Per model, three requests: a tiny ping, a digest-sized answer (25 Hebrew items as JSON), and the same
+# with thinkingLevel low (does the model accept it, and is it faster than the ~100s Cloudflare waits).
 # Prints HTTP status, Google's error and which quota it hit (per minute / per day, and its limit),
 # or the finish reason, token counts (thoughts = thinking tokens) and whether the JSON came back whole.
 set -euo pipefail
@@ -29,6 +30,8 @@ digest_body=$(jq -n '{
       properties: { title_he: { type: "STRING" }, summary_he: { type: "STRING" } } } } } } }
 }')
 
+digest_low_body=$(jq '.generationConfig.thinkingConfig = { thinkingLevel: "low" }' <<<"$digest_body")
+
 out=$(mktemp)
 trap 'rm -f "$out"' EXIT
 
@@ -40,7 +43,7 @@ check() { # model label body
     -H 'content-type: application/json' -H @<(printf 'x-goog-api-key: %s\n' "$key") \
     -d "$3" "https://generativelanguage.googleapis.com/v1beta/models/$1:generateContent") || code=000
   secs=$(($(date +%s) - start))
-  printf '  %-7s HTTP %s, %ss  ' "$2" "$code" "$secs"
+  printf '  %-6s HTTP %s, %ss  ' "$2" "$code" "$secs"
   if [[ $code != 200 ]]; then
     jq -j '[.error.status, (.error.message // "" | .[0:160]),
       (.error.details[]? | .violations[]? | "quota \(.quotaId) limit \(.quotaValue // "?")")] | map(select(. != null and . != "")) | join(" | ")' \
@@ -57,4 +60,5 @@ for m in "${models[@]}"; do
   echo "$m"
   check "$m" ping "$ping_body"
   check "$m" digest "$digest_body"
+  check "$m" low "$digest_low_body"
 done

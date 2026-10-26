@@ -68,6 +68,14 @@ describe('buildDigest', () => {
     expect(callsTo(fetchMock, 'generativelanguage').map((c) => c.url.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.8-flash', 'gemini-3.6-flash']);
   });
 
+  it('moves to a faster model when Cloudflare times out on a slow one (524)', async () => {
+    fetchMock = mockFetch((u) => {
+      if (u.includes('gemini-3.8-flash')) return new Response('error code: 524', { status: 524 });
+      if (u.includes('gemini-3.6-flash')) return geminiAnswer(picksFor([1]));
+    });
+    expect((await buildDigest(e, NOW, 'scheduled'))!.items).toHaveLength(1);
+  });
+
   it('retries a model once on 503 before falling back', async () => {
     let first = true;
     fetchMock = mockFetch((u) => {
