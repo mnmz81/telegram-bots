@@ -14,7 +14,11 @@ if [[ -z $key ]]; then
   read -rsp 'Gemini API key: ' key
   echo
 fi
+# a hidden paste can carry the terminal's bracketed-paste markers (ESC[200~ … ESC[201~) and stray spaces
+key=$(printf '%s' "$key" | sed $'s/\e\\[20[01]~//g' | tr -d '[:space:]')
 [[ -n $key ]] || { echo 'no key' >&2; exit 2; }
+# AI Studio keys are 39 characters starting with AIza; printing only that much reveals nothing
+[[ $key == AIza* && ${#key} == 39 ]] || echo "warning: key is ${#key} chars, starts '${key:0:4}' (expected 39, 'AIza')" >&2
 
 models=("$@")
 if ((${#models[@]} == 0)); then
